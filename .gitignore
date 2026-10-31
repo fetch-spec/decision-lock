@@ -1,0 +1,12 @@
+# per-copy config written by new-slice.sh (container name differs per slice copy)
+decision-lock.env
+!examples/*/decision-lock.env
+# tool output
+*.receipt.txt
+*.log
+handoff/jobs/*.receipt.txt
+.DS_Store
+Thumbs.db
+
+# agent session state
+.remember/
