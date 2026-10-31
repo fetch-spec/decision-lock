@@ -1,6 +1,6 @@
 ---
 name: decision-lock
-description: Use when a written decision log must be locked in with tests, so that every decision (D001, D002, ...) has a database test that fails if the decision is dropped, built in slices of 10 with a builder, a separate certifier and an independent agent that reproduces the result.
+description: Use when a written decision log must be locked in with tests (or to generate a project-specific lock skill with /create-decision-lock), so that every decision (D001, D002, ...) has a database test that fails if the decision is dropped, built in slices of 10 with a builder, a separate certifier and an independent agent that reproduces the result.
 license: MIT
 ---
 
@@ -12,6 +12,7 @@ This skill is the method plus the scripts in `scripts/` and the briefs in `templ
 
 ## Hard rules (apply in every role)
 
+0. **A check you have never seen fail proves nothing.** Prove it can fail (break on purpose, restore byte for byte, show it passes again) before trusting it.
 1. **Never run against a live or production database.** Throwaway container only, built from zero. Mutants are destructive by design.
 2. **Briefs go to CLIs by file pointer**, never inline: the prompt is `Read the file X in full and do exactly what it says. It is your complete brief.`
 3. **A tool error is STOPPED, not a test failure.** No report written, or a nonzero CLI exit: stop and say so. Never loop a tool error to the builder.
@@ -22,6 +23,32 @@ This skill is the method plus the scripts in `scripts/` and the briefs in `templ
 8. In Git Bash set `MSYS_NO_PATHCONV=1` before Docker calls with `/work` paths. In PowerShell never name a helper after the exe it runs.
 
 Full stories for each: `docs/LESSONS.md`.
+
+## /create-decision-lock (the generator)
+
+One generic skill, saved once. Invoked in any project (`/create-decision-lock`, command file in `commands/`; copy it to `~/.claude/commands/` or `<project>/.claude/commands/`), it WRITES a project-specific verification skill into that project at `.claude/skills/lock-<project>/`. There is no one-size-fits-all check: the generator builds the bespoke one. Everything below (decision log, builder, separate certifier, independent rerun, fix loops, severity rule, named-assertion kills, strict harness) stays and is what the generated skill runs.
+
+**A check you have never seen fail proves nothing.** The generator never hands over a skill that has not failed on purpose once.
+
+Steps, in order. Do not skip or reorder:
+
+1. **Discovery: the five questions** (`templates/five-questions.md`, with a worked example). Read the project, answer all five, show the answers, write nothing yet:
+   - **Decisions**: where is the decision log, how are decisions numbered (D001...)?
+   - **Run**: how is a throwaway copy of the system started (container, temp DB, temp dir)?
+   - **Drive**: which test frameworks assert each decision (pgTAP, pytest, jest)?
+   - **Observe**: what evidence is kept (per-decision report, kill matrix, receipts, verdict line)?
+   - **Isolate**: can slices run in parallel, each with its own copy and container/port?
+2. **Tool proposal and approval gate** (`templates/tool-proposal.md`). List each tool: what it does, why this project needs it. Then STOP and wait for the human to say go. If they ask, explain a tool or offer an alternative. Nothing is written before the go.
+3. **Generate** after go: `scripts/create-lock.sh <project-dir> <name> --approved [decision-log]` (refuses without `--approved`). It writes only `.claude/skills/lock-<name>/` from `templates/project-skill/`:
+   - `SKILL.md` with `## Launch`, `## Doctor`, `## Drive`, `## Evidence`, `## Cleanup`, `## Helpers`
+   - `decisions/D001.md ...`, one file per decision (verbatim text, rule class, tests, mutants, status)
+   - `scripts/lock.sh` and `scripts/lock.ps1`: ONE CLI with subcommands `launch`, `doctor`, `run <slice|ids>`, `evidence`, `cleanup` (plus `selftest`), each printing one JSON object (`{"ok":true,...}`). It wraps the unchanged engine in `engine/` (`db.sh`, `env.sh`, `run_decision_tests.sh`).
+4. **Self-test before handover** (`lock.sh selftest <id>`). Pick one decision, apply one mutant (break it on purpose), show the run FAILS by a named assertion, restore the file byte for byte (sha256 before and after must match), show the run PASSES. Record it as "Proof it can fail" in the evidence (`handoff/evidence/selftest.json`, copied into `EVIDENCE.md`). If any step fails, the skill is not ready: fix the cause and rerun.
+5. **Integration: propose, never silently apply.** End by showing the one line from `templates/agent-rule.md` for the project's CLAUDE.md or AGENTS.md: "Before you call any change that touches a recorded decision done, run the lock-<project> skill for those decisions and show its evidence." Write it only if the human agrees.
+
+**Teach mode** (`templates/teach-example.md`). A human adds a decision by giving ONE example of good data and ONE of bad data (or one real failing case). The builder turns it into a test plus a mutant, generalizes it to the whole rule, and shows it failing and passing with `lock.sh run` and `lock.sh selftest`.
+
+The orders example includes a generated tree: `examples/orders/.claude/skills/lock-example/`, with the recorded break-and-restore proof in `examples/orders/handoff/evidence/`.
 
 ## Setup (coordinator)
 

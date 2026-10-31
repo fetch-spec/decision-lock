@@ -1,0 +1,5 @@
+# Throwaway Postgres with pgTAP and pg_prove. Build with: scripts/db.sh build
+FROM postgres:16
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl \
+ && rm -rf /var/lib/apt/lists/*

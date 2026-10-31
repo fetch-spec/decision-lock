@@ -10,6 +10,53 @@ A written decision log is the source of truth. Each decision (`D001`, `D002`, ..
 
 Regulated industries need traceability: for every requirement, point at the evidence that it is met. Software teams rarely do this, and long decision lists get quietly dropped, especially when AI agents do the work. Here every decision has a test that proves it, and a mutant that proves the test is not decoration. A decision that is not built yet is not hidden either: its test fails with `DNNN: not built yet`, so the gap stays visible.
 
+## Install once, generate a lock skill per project
+
+decision-lock is a generator. The generic skill is saved once; in any project you run `/create-decision-lock` and it writes a project-specific `lock-<project>` skill into that project at `.claude/skills/lock-<project>/`. There is no one-size-fits-all check, so the generic skill builds the bespoke one.
+
+```mermaid
+flowchart TD
+    INSTALL[Install decision-lock once<br/>globally] --> INVOKE[In a project: /create-decision-lock]
+    INVOKE --> FQ[Five questions<br/>Decisions, Run, Drive, Observe, Isolate]
+    FQ --> PROP[Tool proposal<br/>each tool: what it does, why needed]
+    PROP --> GO{Human says go?}
+    GO -->|asks or wants an alternative| PROP
+    GO -->|go| GEN[Generate .claude/skills/lock-project/<br/>SKILL.md, decisions/, scripts/lock.sh, engine/]
+    GEN --> ST[Self-test<br/>break one decision on purpose]
+    ST --> FAIL[Run FAILS by a named assertion]
+    FAIL --> RESTORE[Restore file byte for byte<br/>sha256 before = after]
+    RESTORE --> PASS[Run PASSES again<br/>recorded as Proof it can fail]
+    PASS --> RULE[Propose one line for CLAUDE.md / AGENTS.md<br/>never applied silently]
+    RULE --> PIPE[Existing pipeline per slice<br/>build -> certify -> independent -> fix loops]
+    PIPE --> LOCKED[Slice locked]
+```
+
+1. **Five questions** (`templates/five-questions.md`): Decisions (where is the log, how are ids numbered), Run (how a throwaway copy starts), Drive (which test framework asserts each decision), Observe (what evidence is kept), Isolate (can slices run in parallel, each with its own copy and container).
+2. **Tool proposal** (`templates/tool-proposal.md`): every tool with what it does and why this project needs it. The generator then waits for your go; ask it to explain a tool or offer an alternative.
+3. **Generate**: `scripts/create-lock.sh <project-dir> <name> --approved` (it refuses without `--approved`). Output layout, one folder:
+
+```
+.claude/skills/lock-<name>/
+  SKILL.md              ## Launch, ## Doctor, ## Drive, ## Evidence, ## Cleanup, ## Helpers
+  decisions/D001.md ... one file per decision: text, rule class, tests, mutants, status
+  scripts/lock.sh       ONE CLI: launch | doctor | run <slice|ids> | evidence | cleanup | selftest
+  scripts/lock.ps1      Windows entry point (calls lock.sh)
+  engine/               unchanged db.sh, env.sh, run_decision_tests.sh, Dockerfile
+```
+
+   Every `lock.sh` subcommand prints one JSON object, such as `{"ok":true,"cmd":"run","decisions_passed":3,"mutants_killed":9,...,"verdict":"LOCKED"}`.
+4. **Self-test** (`lock.sh selftest <id>`): break one decision on purpose, show the run fails by a named assertion, restore the file byte for byte (hashes compared), show the run passes. **A check you have never seen fail proves nothing.**
+5. **Agent rule** (`templates/agent-rule.md`): the generator proposes one line for CLAUDE.md or AGENTS.md: "Before you call any change that touches a recorded decision done, run the lock-<project> skill for those decisions and show its evidence." It is only written if you agree.
+6. **Teach mode** (`templates/teach-example.md`): add a decision by giving one example of good data and one of bad data (or one real failing case). The builder turns it into a test plus a mutant.
+
+The generated tree for the worked example is in `examples/orders/.claude/skills/lock-example/`, and its recorded proof is in `examples/orders/handoff/evidence/`.
+
+Break-and-restore proof from the worked example (decision D003):
+
+```
+{"ok":true,"cmd":"selftest","decision":"D003","mutant":"d_003_get_order_ignores_customer.sql","broken_run":"FAILED","failed_assertions":"D003-04","restored_file":"db/001_schema.sql","hash_before":"d850729c...66b1","hash_broken":"3f85ad3a...0bf5","hash_after":"d850729c...66b1","hash_match":true,"restored_run":"PASSED"}
+```
+
 ## The flow (per slice)
 
 ```mermaid
@@ -56,7 +103,16 @@ killed  d_003_table_select_granted.sql  [D003-07]
 mutants: 9 killed, 0 crashed, 0 survived
 ```
 
-Then use it on your own project:
+Or run the generated skill for the example (needs only bash and Docker):
+
+```bash
+cd examples/orders/.claude/skills/lock-example
+scripts/lock.sh launch && scripts/lock.sh doctor && scripts/lock.sh run
+scripts/lock.sh selftest D003 && scripts/lock.sh evidence
+scripts/lock.sh cleanup
+```
+
+Then use it on your own project (or run `/create-decision-lock` and let it generate the skill):
 
 1. Write the decision log (`templates/decision-log.example.md` shows the shape). One decision per entry, stable ids.
 2. Put your schema in `db/*.sql` and your tests in `tests/pgtap/decisions/` and `tests/mutants/decisions/`. Keep this repo checked out; its scripts work on any project through `DL_ROOT`.
@@ -85,6 +141,7 @@ Configuration (all optional): `decision-lock.env` in the project root, or enviro
 
 ```bash
 git clone <this repo> ~/.claude/skills/decision-lock
+mkdir -p ~/.claude/commands && cp ~/.claude/skills/decision-lock/commands/create-decision-lock.md ~/.claude/commands/   # /create-decision-lock
 ```
 
 Then ask the agent to "lock the decisions in decision-log.md with decision-lock" and it follows `SKILL.md`.
@@ -95,13 +152,17 @@ Then ask the agent to "lock the decisions in decision-log.md with decision-lock"
 |---|---|
 | `SKILL.md` | The method as instructions for an agent |
 | `templates/` | Decision log example, builder / certifier / independent / fix briefs, report skeletons (placeholders `{{SLICE}}`, `{{CONTAINER}}`, ...) |
+| `commands/create-decision-lock.md` | The `/create-decision-lock` command |
+| `scripts/create-lock.sh` | Generator: writes `.claude/skills/lock-<name>/` into a project (needs `--approved`) |
+| `templates/five-questions.md`, `tool-proposal.md`, `agent-rule.md`, `teach-example.md` | Discovery, approval gate, agent rule, teach mode |
+| `templates/project-skill/` | What the generator renders: SKILL.md, `decisions/decision.md`, `scripts/lock.sh`, `lock.ps1` |
 | `scripts/pipeline.ps1`, `pipeline.sh` | The orchestrator for one slice |
 | `scripts/run_decision_tests.sh` | Strict runner: KILLED only by a named failing assertion; CRASHED and SURVIVED fail the run |
 | `scripts/db.sh`, `env.sh` | Throwaway container: `build`, `start`, `fresh`, `stop` |
 | `scripts/new-slice.sh` | Private slice copy with its own container and rendered briefs |
 | `docker/Dockerfile` | Postgres + pgTAP image |
-| `examples/orders/` | A 3-decision worked example with general-rule tests, 9 mutants, sample reports |
-| `docs/LESSONS.md` | The ten hard-won lessons with the failure story for each |
+| `examples/orders/` | A 3-decision worked example with general-rule tests, 9 mutants, sample reports, the generated `.claude/skills/lock-example/` tree and its break-and-restore proof |
+| `docs/LESSONS.md` | The eleven hard-won lessons with the failure story for each |
 | `docs/WATCHER.md` | Running the 30-minute watcher |
 
 ## Safety

@@ -1,6 +1,6 @@
 # Lessons
 
-Ten things that went wrong, or would have, while this method was run on a real decision log with several slices in parallel. Each is written as the failure to expect, so you do not repeat it. Stories 1, 4, 5 and 7 are exact accounts of what happened; in the others the mechanism is real and the details are described in general terms.
+Eleven things that went wrong, or would have, while this method was run on a real decision log with several slices in parallel. Each is written as the failure to expect, so you do not repeat it. Stories 1, 4, 5 and 7 are exact accounts of what happened; in the others the mechanism is real and the details are described in general terms.
 
 ## 1. Pass briefs to CLIs by file pointer, never inline
 
@@ -79,3 +79,11 @@ Ten things that went wrong, or would have, while this method was run on a real d
 **Rule.** Tests run on a throwaway container built from zero. Mutants are destructive by design (they drop constraints and replace functions). Every brief says so, and `db.sh` refuses to touch a container that does not carry its own label.
 
 **Why.** There is no second chance after a mutant runs on real data. Keep the connection string of any real database out of the working copy entirely.
+
+## 11. A check you have never seen fail proves nothing
+
+**Rule.** Before a check is trusted, break one thing on purpose and watch the check fail by name, put the thing back exactly (compare hashes), and watch the check pass again. The generated lock skill is not handed over until `lock.sh selftest` has done this and recorded it as "Proof it can fail".
+
+**The failure.** A check that has only ever printed green may be checking nothing: wrong directory, empty test list, an assertion that cannot fail, a container that is not the one under test. Everything looks fine until the day it matters.
+
+**Why it works.** One deliberate failure shows the check is wired to the real system and that its failure message points at the right decision. Restoring byte for byte, proven by a hash, shows the experiment left nothing behind, and the final pass shows the check recovers.
