@@ -2,6 +2,8 @@
 
 Lock every design decision with a test that fails if the decision is dropped: slice, build, certify, independently reproduce, loop.
 
+One-page explainer: [docs/explainer.html](docs/explainer.html)
+
 A written decision log is the source of truth. Each decision (`D001`, `D002`, ...) becomes a test named after it, run against a real throwaway Postgres (Docker + pgTAP). To prove the test can fail, every test comes with mutants: deliberately broken copies of the code that the test must catch. Work is cut into slices of 10 decisions, and each slice is built, certified and independently reproduced by different agents before any human is bothered.
 
 ## Why
@@ -108,4 +110,4 @@ Mutants are destructive. Run only against containers this tool created (they car
 
 ## License
 
-License: TBD (private).
+License: MIT, see LICENSE.

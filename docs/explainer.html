@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>decision-lock</title>
+<style>
+  @page { size: letter landscape; margin: 0.25in; }
+  :root {
+    --bg:#05071a; --teal:#2ee6c8; --violet:#8b5cf6; --orange:#ff8a3d; --pink:#ff4fa3; --green:#5dffa0;
+    --ink:#f2f4ff; --body:#b4bbd8; --mute:#7f89b3;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, Menlo, monospace;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { background:var(--bg); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color:var(--body); line-height:1.55; min-height:100vh; position:relative; overflow-x:hidden;
+    background:
+      radial-gradient(900px 600px at 6% -8%, rgba(46,230,200,.20), transparent 60%),
+      radial-gradient(900px 640px at 100% 2%, rgba(139,92,246,.30), transparent 60%),
+      radial-gradient(900px 520px at 55% 108%, rgba(255,138,61,.16), transparent 60%),
+      var(--bg);
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  body::before {
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size:56px 56px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 25%, #000 30%, transparent 80%);
+            mask-image: radial-gradient(ellipse 80% 70% at 50% 25%, #000 30%, transparent 80%);
+  }
+  .page { position:relative; z-index:1; max-width:1160px; margin:0 auto; padding:72px 28px 48px; }
+
+  /* hero */
+  .hero { text-align:center; margin-bottom:56px; }
+  .badge {
+    display:inline-flex; align-items:center; gap:9px; padding:7px 16px; border-radius:999px;
+    font-size:13px; font-weight:600; letter-spacing:.4px; color:#d9fff6;
+    background:rgba(46,230,200,.10); border:1px solid rgba(46,230,200,.40);
+    box-shadow:0 0 24px rgba(46,230,200,.28), inset 0 0 12px rgba(46,230,200,.10);
+  }
+  .badge i { width:8px; height:8px; border-radius:50%; background:var(--teal); box-shadow:0 0 10px 2px var(--teal); }
+  h1 {
+    margin:26px 0 20px; font-size:clamp(46px, 10vw, 112px); line-height:.98; font-weight:800; letter-spacing:-.045em;
+    background:linear-gradient(100deg, #fff 0%, var(--teal) 22%, var(--violet) 48%, var(--pink) 68%, var(--orange) 85%, #fff 100%);
+    background-size:220% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
+    animation:shimmer 9s linear infinite;
+  }
+  .sub { font-size:clamp(18px, 2.4vw, 24px); line-height:1.4; color:var(--body); max-width:680px; margin:0 auto; font-weight:400; }
+  .sub b { color:#fff; font-weight:600; }
+
+  /* stats */
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin:0 0 72px; border-radius:20px; overflow:hidden;
+    background:linear-gradient(120deg, rgba(46,230,200,.5), rgba(139,92,246,.5), rgba(255,138,61,.5)); padding:1px; }
+  .stat { background:rgba(8,11,34,.92); padding:30px 18px; text-align:center; }
+  .stat:first-child { border-radius:19px 0 0 19px; } .stat:last-child { border-radius:0 19px 19px 0; }
+  .stat .n {
+    display:block; font-size:clamp(44px, 6vw, 72px); font-weight:800; line-height:1; letter-spacing:-.04em;
+    background:linear-gradient(135deg, #fff, var(--teal) 50%, var(--violet)); -webkit-background-clip:text; background-clip:text;
+    color:transparent; -webkit-text-fill-color:transparent;
+  }
+  .stat:nth-child(2) .n { background-image:linear-gradient(135deg,#fff,var(--green) 50%,var(--teal)); }
+  .stat:nth-child(3) .n { background-image:linear-gradient(135deg,#fff,#b79bff 50%,var(--pink)); }
+  .stat:nth-child(4) .n { background-image:linear-gradient(135deg,#fff,var(--orange) 50%,var(--pink)); }
+  .stat .l { display:block; margin-top:10px; font-size:14px; color:var(--mute); font-weight:500; }
+
+  /* sections */
+  .eyebrow { font-size:12px; letter-spacing:.2em; text-transform:uppercase; font-weight:600; color:var(--mute); text-align:center; margin-bottom:10px; }
+  h2 { font-size:clamp(28px, 4vw, 42px); line-height:1.1; font-weight:600; letter-spacing:-.03em; color:#fff; text-align:center; margin-bottom:36px; }
+  section { margin-bottom:76px; }
+
+  .cols, .rows { display:grid; grid-template-columns:1fr 44px 1fr; column-gap:10px; }
+  .cols { margin-bottom:14px; }
+  .colhead { font-size:12px; letter-spacing:.2em; text-transform:uppercase; font-weight:700; padding-left:6px; }
+  .colhead.p { color:var(--orange); } .colhead.f { color:var(--teal); }
+  .rows { row-gap:16px; }
+  .card {
+    position:relative; display:flex; gap:16px; align-items:flex-start; padding:22px 24px; border-radius:20px;
+    font-size:15px; line-height:1.55; color:var(--body);
+    -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+    box-shadow:0 12px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .card::before { /* 1px gradient border */
+    content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none;
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+            mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+  .card.p { background:linear-gradient(150deg, rgba(255,110,60,.15), rgba(255,60,80,.04)); }
+  .card.p::before { background:linear-gradient(150deg, rgba(255,150,70,.70), rgba(255,70,90,.12) 60%, rgba(255,150,70,.30)); }
+  .card.f { background:linear-gradient(150deg, rgba(46,230,200,.14), rgba(60,220,130,.04)); }
+  .card.f::before { background:linear-gradient(150deg, rgba(46,230,200,.70), rgba(93,255,160,.12) 60%, rgba(46,230,200,.30)); }
+  .card b { color:#fff; font-weight:600; }
+  .ic { flex:0 0 40px; width:40px; height:40px; padding:8px; border-radius:12px; }
+  .p .ic { background:rgba(255,138,61,.14); box-shadow:0 0 18px rgba(255,138,61,.25); }
+  .f .ic { background:rgba(46,230,200,.13); box-shadow:0 0 18px rgba(46,230,200,.25); }
+  .num { position:absolute; top:14px; right:18px; font-family:var(--mono); font-size:12px; color:var(--mute); }
+  .arrow { display:flex; align-items:center; justify-content:center; }
+  .arrow svg { width:30px; height:30px; }
+
+  /* flow */
+  .flow {
+    position:relative; border-radius:24px; padding:28px 20px 16px;
+    background:linear-gradient(160deg, rgba(139,92,246,.14), rgba(46,230,200,.05));
+    box-shadow:0 20px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .flow::before { content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none;
+    background:linear-gradient(120deg, rgba(139,92,246,.7), rgba(255,255,255,.05) 50%, rgba(46,230,200,.6));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+            mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+  .flow svg { display:block; width:100%; height:auto; overflow:visible; }
+  .pulse { transform-box:fill-box; transform-origin:center; animation:pulse 3.2s ease-in-out infinite; }
+
+  /* proof */
+  .proof { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .pf { position:relative; border-radius:20px; padding:28px 26px; font-size:15px; line-height:1.55;
+    -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); box-shadow:0 12px 40px rgba(0,0,0,.35); }
+  .pf::before { content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none;
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+            mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+  .pf b { display:block; font-size:19px; font-weight:600; letter-spacing:-.01em; margin-bottom:8px; }
+  .pf.a { background:linear-gradient(145deg, rgba(46,230,200,.18), rgba(46,230,200,.03)); } .pf.a::before{background:linear-gradient(145deg,rgba(46,230,200,.7),rgba(46,230,200,.05))} .pf.a b{color:var(--teal);}
+  .pf.b { background:linear-gradient(145deg, rgba(139,92,246,.22), rgba(139,92,246,.03)); } .pf.b::before{background:linear-gradient(145deg,rgba(167,139,250,.7),rgba(139,92,246,.05))} .pf.b b{color:#b79bff;}
+  .pf.c { background:linear-gradient(145deg, rgba(255,138,61,.20), rgba(255,138,61,.03)); } .pf.c::before{background:linear-gradient(145deg,rgba(255,138,61,.7),rgba(255,138,61,.05))} .pf.c b{color:var(--orange);}
+
+  footer { text-align:center; margin-top:64px; font-size:14px; color:var(--mute); }
+  footer span { color:var(--ink); font-weight:600; }
+  code, .mono { font-family:var(--mono); }
+
+  @keyframes shimmer { from { background-position:0% 0; } to { background-position:220% 0; } }
+  @keyframes pulse { 0%,100% { opacity:.35; transform:scale(1); } 50% { opacity:.95; transform:scale(1.07); } }
+  @media (prefers-reduced-motion: reduce) { h1, .pulse { animation:none; } .pulse { opacity:.6; } }
+
+  @media screen and (max-width: 860px) {
+    .page { padding:48px 18px 36px; }
+    .stats { grid-template-columns:repeat(2,1fr); } .stat:nth-child(n) { border-radius:0; }
+    .cols { display:none; }
+    .rows { grid-template-columns:1fr; row-gap:8px; }
+    .arrow { height:30px; transform:rotate(90deg); }
+    .rows .arrow:not(:nth-child(3n+2)) { display:none; }
+    .proof { grid-template-columns:1fr; }
+    .flow { overflow-x:auto; } .flow svg { min-width:760px; }
+  }
+
+  @media print {
+    @page { size:letter landscape; margin:.25in; }
+    html, body { background:#fff; color:#222; height:750px; overflow:hidden; }
+    body { min-height:0; height:750px; background:#fff; overflow:hidden; }
+    body::before { display:none; }
+    .page { max-width:none; width:2150px; max-width:none; padding:0; transform:scale(.46); transform-origin:0 0; height:1630px; overflow:hidden; }
+    h1 { font-size:76px; margin:14px 0 10px; } .sub { font-size:20px; }
+    .stat { padding:14px 10px; } .stat .n { font-size:44px; } .stat .l { margin-top:4px; }
+    .card { padding:12px 18px; } .rows { row-gap:8px; } .cols { margin-bottom:6px; } h2 { margin-bottom:14px; } .flow { padding:12px 16px 4px; } .pf { padding:14px 20px; }
+    h1 { background:none; -webkit-text-fill-color:#4527c9; color:#4527c9; animation:none; }
+    h2, .card b, .sub b, .stat .n { color:#111; }
+    .stat .n { background:none; -webkit-text-fill-color:#4527c9; color:#4527c9; }
+    .stat { background:#fff; border:1px solid #ccc; } .stats { background:#ccc; }
+    .card, .pf, .flow { -webkit-backdrop-filter:none; backdrop-filter:none; box-shadow:none; break-inside:avoid; }
+    .card.p { background:#fff3ea; } .card.f { background:#e8faf6; }
+    .pf.a { background:#e8faf6; } .pf.b { background:#f0eafe; } .pf.c { background:#fff3ea; }
+    .flow { background:#f1efff; } footer span, .colhead { color:#111; } .pf b { filter:brightness(.6); }
+    .card, .sub, .pf, .stat .l, footer, .eyebrow { color:#333; }
+    .hero, section, .stats { margin-bottom:18px; }
+    .badge { color:#0a6b5c; background:#e8faf6; box-shadow:none; }
+    footer { margin-top:20px; }
+    .pulse { animation:none; opacity:.6; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="hero">
+  <span class="badge"><i></i>Private preview</span>
+  <h1>decision-lock</h1>
+  <p class="sub">Every decision you make gets a test that <b>fails the moment AI drops it.</b></p>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="n">1</span><span class="l">test per decision</span></div>
+  <div class="stat"><span class="n">0</span><span class="l">survived mutants</span></div>
+  <div class="stat"><span class="n">2</span><span class="l">independent AI vendors</span></div>
+  <div class="stat"><span class="n">3</span><span class="l">auto-fix loops</span></div>
+</div>
+
+<section>
+  <div class="eyebrow">The problem with AI-built software</div>
+  <h2>How decision-lock fixes it</h2>
+  <div class="cols">
+    <div class="colhead p">The problem</div><div></div><div class="colhead f">The fix</div>
+  </div>
+  <div class="rows">
+
+    <div class="card p"><span class="num">01</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#ff8a3d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M9 12l6 6M15 12l-6 6"/></svg>
+      <span><b>Decisions get dropped.</b> AI silently skips or reinterprets what you decided.</span>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="card f"><span class="num">01</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#2ee6c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+      <span><b>One decision log is the single source of truth.</b> One test per decision, named after it, run on a real throwaway database.</span>
+    </div>
+
+    <div class="card p"><span class="num">02</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#ff8a3d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.500v.5"/></svg>
+      <span><b>False "done".</b> It says "tests pass" when they don't.</span>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="card f"><span class="num">02</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#2ee6c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/><path d="M8.500 12l2.500 2.500 4.500-5"/></svg>
+      <span><b>An independent agent from a different AI vendor</b> reproduces the run. "Done" means reproduced, not claimed.</span>
+    </div>
+
+    <div class="card p"><span class="num">03</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#ff8a3d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="4.500"/><circle cx="16" cy="15" r="4.500"/></svg>
+      <span><b>Self-graded tests.</b> The AI that wrote the code writes the tests, so they check what it built, not what you decided.</span>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="card f"><span class="num">03</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#2ee6c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.500-4.500"/></svg>
+      <span><b>A separate certifier session</b> re-runs everything on a fresh database and attacks it with its own broken copies.</span>
+    </div>
+
+    <div class="card p"><span class="num">04</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#ff8a3d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>
+      <span><b>Tests that pass on anything.</b> Weak or vacuous assertions prove nothing.</span>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="card f"><span class="num">04</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#2ee6c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></svg>
+      <span><b>Mutation testing.</b> Deliberately broken copies must be caught by a named failing assertion, or the test has no teeth.</span>
+    </div>
+
+    <div class="card p"><span class="num">05</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#ff8a3d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M4 12h6M4 17h10"/><path d="M17 9l3 3-3 3"/></svg>
+      <span><b>Context loss.</b> Across sessions and agents, earlier decisions are forgotten.</span>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="card f"><span class="num">05</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#2ee6c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1.500"/><rect x="14" y="4" width="7" height="7" rx="1.500"/><rect x="3" y="14" width="7" height="7" rx="1.500"/><rect x="14" y="14" width="7" height="7" rx="1.500"/></svg>
+      <span><b>Small slices of 10, run in parallel.</b> Each slice is checked against the log, never against memory.</span>
+    </div>
+
+    <div class="card p"><span class="num">06</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#ff8a3d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.500"/><circle cx="18" cy="18" r="2.500"/><path d="M8 7.500c6 0 2 9 8 9" stroke-dasharray="2 3"/></svg>
+      <span><b>No audit trail</b> from a decision to proof that it holds.</span>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="card f"><span class="num">06</span>
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#2ee6c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.700"/><path d="M21 4v5h-5"/></svg>
+      <span><b>Automatic fix loops.</b> Failures go back to the builder on their own. A human hears about it only after 3 loops, with the root cause already found.</span>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">The flow</div>
+  <h2>Per slice of 10 decisions</h2>
+  <div class="flow">
+<svg viewBox="0 0 1120 215" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Decision log to Builder to Certifier to Independent run to Locked, with fix loops back to the Builder">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2ee6c8"/><stop offset="1" stop-color="#0a8f9a"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5aa2ff"/><stop offset="1" stop-color="#3b50d6"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a47bff"/><stop offset="1" stop-color="#6a35d8"/></linearGradient>
+    <linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa14a"/><stop offset="1" stop-color="#e5561f"/></linearGradient>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9dffb4"/><stop offset="1" stop-color="#15b86a"/></linearGradient>
+    <linearGradient id="c12" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2ee6c8"/><stop offset="1" stop-color="#5aa2ff"/></linearGradient>
+    <linearGradient id="c23" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5aa2ff"/><stop offset="1" stop-color="#a47bff"/></linearGradient>
+    <linearGradient id="c34" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a47bff"/><stop offset="1" stop-color="#ffa14a"/></linearGradient>
+    <linearGradient id="c45" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffa14a"/><stop offset="1" stop-color="#5dffa0"/></linearGradient>
+    <filter id="glow" x="-30%" y="-40%" width="160%" height="190%"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="soft" x="-50%" y="-60%" width="200%" height="220%"><feGaussianBlur stdDeviation="16"/></filter>
+    <marker id="ahr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff4fa3"/></marker>
+  </defs>
+
+  <!-- fix loops (curved, back to Builder) -->
+  <path d="M519 100 C519 168 299 168 299 104" fill="none" stroke="#ff4fa3" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ahr)"/>
+  <path d="M789 100 C789 205 335 205 335 104" fill="none" stroke="#ff4fa3" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ahr)"/>
+  <text x="409" y="160" fill="#ff7ab8" font-size="12" font-weight="600" text-anchor="middle" font-family="system-ui, Segoe UI, Arial, sans-serif">fix loop (max 3)</text>
+  <text x="562" y="196" fill="#ff7ab8" font-size="12" font-weight="600" text-anchor="middle" font-family="system-ui, Segoe UI, Arial, sans-serif">fix loop (max 3)</text>
+
+  <!-- connectors -->
+  <path d="M168 60 H208" stroke="url(#c12)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M388 60 H428" stroke="url(#c23)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M608 60 H688" stroke="url(#c34)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M888 60 H948" stroke="url(#c45)" stroke-width="3" stroke-linecap="round"/>
+  <g fill="#c9cfee"><path d="M208 53l9 7-9 7z" opacity="0"/>
+    <path d="M200 54l9 6-9 6z" fill="#5aa2ff"/><path d="M420 54l9 6-9 6z" fill="#a47bff"/><path d="M680 54l9 6-9 6z" fill="#ffa14a"/><path d="M940 54l9 6-9 6z" fill="#5dffa0"/></g>
+  <text x="648" y="46" fill="#8d97c4" font-size="11" text-anchor="middle" font-family="system-ui, Segoe UI, Arial, sans-serif">pass</text>
+  <text x="918" y="46" fill="#8d97c4" font-size="11" text-anchor="middle" font-family="system-ui, Segoe UI, Arial, sans-serif">pass</text>
+
+  <!-- Locked pulse halo -->
+  <rect class="pulse" x="950" y="25" width="150" height="70" rx="18" fill="#5dffa0" filter="url(#soft)"/>
+
+  <!-- nodes -->
+  <g font-family="system-ui, Segoe UI, Arial, sans-serif" text-anchor="middle" filter="url(#glow)">
+    <rect x="20" y="25" width="148" height="70" rx="16" fill="url(#g1)"/>
+    <text x="94" y="55" font-size="16" font-weight="700" fill="#04141a">Decision log</text>
+    <text x="94" y="75" font-size="12" fill="#04141a" font-family="ui-monospace, Consolas, monospace">D001, D002 ...</text>
+
+    <rect x="210" y="25" width="178" height="70" rx="16" fill="url(#g2)"/>
+    <text x="299" y="53" font-size="16" font-weight="700" fill="#fff">Builder</text>
+    <text x="299" y="73" font-size="12" fill="#e6efff">tests + mutants</text>
+
+    <rect x="430" y="25" width="178" height="70" rx="16" fill="url(#g3)"/>
+    <text x="519" y="53" font-size="16" font-weight="700" fill="#fff">Certifier</text>
+    <text x="519" y="73" font-size="12" fill="#efe6ff">separate session</text>
+
+    <rect x="690" y="25" width="198" height="70" rx="16" fill="url(#g4)"/>
+    <text x="789" y="53" font-size="16" font-weight="700" fill="#2a0e00">Independent run</text>
+    <text x="789" y="73" font-size="12" fill="#2a0e00">different AI vendor</text>
+
+    <rect x="950" y="25" width="150" height="70" rx="16" fill="url(#g5)" stroke="#d6ffe3" stroke-width="1.5"/>
+    <text x="1043" y="53" font-size="17" font-weight="800" fill="#03210f">LOCKED</text>
+    <text x="1043" y="73" font-size="12" fill="#03210f">reproduced</text>
+  </g>
+  <!-- lock icon -->
+  <g transform="translate(962 43)" fill="none" stroke="#03210f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="1" y="9" width="16" height="12" rx="2.500" fill="#03210f" fill-opacity=".15"/>
+    <path d="M4.500 9V6a4.500 4.500 0 0 1 9 0v3"/>
+    <path d="M9 14v3"/>
+  </g>
+</svg>
+  </div>
+</section>
+
+<section style="margin-bottom:0">
+  <div class="proof">
+    <div class="pf a"><b>Traceability</b>Like regulated industries such as aerospace and medical: every decision links to a test, a mutant, and a report.</div>
+    <div class="pf b"><b>Confidence to let AI build</b>Hand it real work. "Done" is proven by a run you did not have to trust.</div>
+    <div class="pf c"><b>Regressions caught before shipping</b>If a later change breaks an earlier decision, its test fails right away.</div>
+  </div>
+</section>
+
+<footer><span>Private preview.</span> MIT licensed.</footer>
+
+</div>
+</body>
+</html>

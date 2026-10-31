@@ -1,6 +1,7 @@
 ---
 name: decision-lock
 description: Use when a written decision log must be locked in with tests, so that every decision (D001, D002, ...) has a database test that fails if the decision is dropped, built in slices of 10 with a builder, a separate certifier and an independent agent that reproduces the result.
+license: MIT
 ---
 
 # decision-lock
