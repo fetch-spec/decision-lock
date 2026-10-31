@@ -24,25 +24,42 @@ Regulated industries need traceability: for every requirement, point at the evid
 
 <p align="center"><img src="docs/assets/divider.svg" alt=""></p>
 
-## Install once, generate a lock skill per project
+## How it works
 
-decision-lock is a generator. The generic skill is saved once; in any project you tell your agent (or follow it yourself) "run the create-decision-lock skill" and it writes a project-specific `lock-<project>` skill into that project at `.agents/skills/lock-<project>/`. There is no one-size-fits-all check, so the generic skill builds the bespoke one.
+decision-lock is a generator. The generic skill is saved once; in any project you tell your agent (or follow it yourself) "run the create-decision-lock skill" and it writes a project-specific `lock-<project>` skill into that project at `.agents/skills/lock-<project>/`. There is no one-size-fits-all check, so the generic skill builds the bespoke one. That lock skill then guards every slice of 10 decisions. One diagram covers both halves: set up once, then lock slice after slice.
 
 ```mermaid
 flowchart TD
-    INSTALL[Install decision-lock once<br/>once] --> INVOKE[In a project: run the create-decision-lock skill]
-    INVOKE --> FQ[Five questions<br/>Decisions, Run, Drive, Observe, Isolate]
-    FQ --> PROP[Tool proposal<br/>each tool: what it does, why needed]
-    PROP --> GO{Human says go?}
-    GO -->|asks or wants an alternative| PROP
-    GO -->|go| GEN[Generate .agents/skills/lock-project/<br/>SKILL.md, decisions/, scripts/lock.sh, engine/]
-    GEN --> ST[Self-test<br/>break one decision on purpose]
-    ST --> FAIL[Run FAILS by a named assertion]
-    FAIL --> RESTORE[Restore file byte for byte<br/>sha256 before = after]
-    RESTORE --> PASS[Run PASSES again<br/>recorded as Proof it can fail]
-    PASS --> RULE[Propose one line for AGENTS.md<br/>never applied silently]
-    RULE --> PIPE[Existing pipeline per slice<br/>build -> certify -> independent -> fix loops]
-    PIPE --> LOCKED[Slice locked]
+    subgraph SETUP["Once per project: set up"]
+        INSTALL["Install decision-lock once"] --> INVOKE["In a project: run the create-decision-lock skill"]
+        INVOKE --> FQ["Five questions<br/>Decisions, Run, Drive, Observe, Isolate"]
+        FQ --> PROP["Tool proposal<br/>each tool: what it does, why needed"]
+        PROP --> GO{"Human says go?"}
+        GO -->|"asks or wants an alternative"| PROP
+        GO -->|"go"| GEN["Generate .agents/skills/lock-project/<br/>SKILL.md, decisions/, scripts/lock.sh, engine/"]
+        GEN --> ST["Self-test<br/>break one decision on purpose"]
+        ST --> FAIL["Run FAILS by a named assertion"]
+        FAIL --> RESTORE["Restore file byte for byte<br/>sha256 before = after"]
+        RESTORE --> PASS["Run PASSES again<br/>recorded as Proof it can fail"]
+        PASS --> RULE["Propose one line for AGENTS.md<br/>never applied silently"]
+    end
+    subgraph SLICE_LOOP["Every slice of 10 decisions: lock"]
+        LOG["Decision log<br/>D001..D0NN"] --> SLICE["Slice of 10"]
+        SLICE --> BUILD["1. BUILDER session<br/>classify, general-rule tests, mutants, self-test"]
+        BUILD --> CERT["2. CERTIFIER session<br/>fresh DB re-run, check classification,<br/>old mutants plus at most 5 new, rate HIGH, MEDIUM, LOW"]
+        CERT -->|"NOT CERTIFIED<br/>(MEDIUM or HIGH found blocks)"| FIX1["cert fix brief to builder<br/>max 3 loops"]
+        FIX1 --> CERT
+        CERT -->|"CERTIFIED"| IND["3. INDEPENDENT agent, a different agent<br/>run-only, edits nothing"]
+        IND -->|"NOT REPRODUCED<br/>(failing file or mutant not killed)"| FIX2["independent fix brief to builder<br/>max 3 loops"]
+        FIX2 --> IND
+        IND -->|"REPRODUCED"| DONE["Slice locked"]
+        FIX1 -.->|"loops exhausted"| HUMAN["4. Human hears about it,<br/>root cause already found"]
+        FIX2 -.->|"loops exhausted"| HUMAN
+        BUILD -.->|"tool error or no report"| STOP["STOPPED: not a test failure,<br/>retry the tool, never loop it"]
+        CERT -.->|"tool error"| STOP
+        IND -.->|"tool error"| STOP
+    end
+    RULE --> LOG
 ```
 
 1. **Five questions** (`templates/five-questions.md`): Decisions (where is the log, how are ids numbered), Run (how a throwaway copy starts), Drive (which test framework asserts each decision), Observe (what evidence is kept), Isolate (can slices run in parallel, each with its own copy and container).
@@ -71,29 +88,7 @@ Break-and-restore proof from the worked example (decision D003):
 {"ok":true,"cmd":"selftest","decision":"D003","mutant":"d_003_get_order_ignores_customer.sql","broken_run":"FAILED","failed_assertions":"D003-04","restored_file":"db/001_schema.sql","hash_before":"d850729c...66b1","hash_broken":"3f85ad3a...0bf5","hash_after":"d850729c...66b1","hash_match":true,"restored_run":"PASSED"}
 ```
 
-<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
-
-## The flow (per slice)
-
-```mermaid
-flowchart TD
-    LOG[Decision log<br/>D001..D0NN] --> SLICE[Slice of 10]
-    SLICE --> BUILD[1. BUILDER session<br/>classify, general-rule tests, mutants, self-test]
-    BUILD --> CERT[2. CERTIFIER session<br/>fresh DB re-run, check classification,<br/>old mutants + at most 5 new, rate HIGH/MEDIUM/LOW]
-    CERT -->|"**Verdict: NOT CERTIFIED<br/>(MEDIUM or HIGH found)"| FIX1[cert fix brief to builder<br/>max 3 loops]
-    FIX1 --> CERT
-    CERT -->|CERTIFIED| IND[3. INDEPENDENT agent, a different agent<br/>run-only, edits nothing]
-    IND -->|"NOT REPRODUCED<br/>(failing file or mutant not killed)"| FIX2[independent fix brief to builder<br/>max 3 loops]
-    FIX2 --> IND
-    IND -->|REPRODUCED| DONE[Slice locked]
-    FIX1 -.loops exhausted.-> HUMAN[4. Human hears about it,<br/>root cause already found]
-    FIX2 -.loops exhausted.-> HUMAN
-    BUILD -.tool error / no report.-> STOP[STOPPED: not a test failure,<br/>retry the tool, never loop it]
-    CERT -.tool error.-> STOP
-    IND -.tool error.-> STOP
-```
-
-Slices run in parallel, each in its own copy of the repo and its own database container. A watcher checks every 30 minutes ([docs/WATCHER.md](docs/WATCHER.md)).
+**Every slice** runs the second half of the chart. Slices run in parallel, each in its own copy of the repo and its own database container. A watcher checks every 30 minutes ([docs/WATCHER.md](docs/WATCHER.md)).
 
 Pass criteria:
 - **CERTIFIED**: no MEDIUM or HIGH problem. LOW problems are listed but never block.
