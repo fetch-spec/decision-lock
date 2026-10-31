@@ -182,7 +182,7 @@
 <div class="stats">
   <div class="stat"><span class="n">1</span><span class="l">test per decision</span></div>
   <div class="stat"><span class="n">0</span><span class="l">survived mutants</span></div>
-  <div class="stat"><span class="n">2</span><span class="l">independent AI vendors</span></div>
+  <div class="stat"><span class="n">2</span><span class="l">separate agents (builder, independent)</span></div>
   <div class="stat"><span class="n">3</span><span class="l">auto-fix loops</span></div>
 </div>
 
@@ -211,7 +211,7 @@
     <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
     <div class="card f"><span class="num">02</span>
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#2ee6c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/><path d="M8.500 12l2.500 2.500 4.500-5"/></svg>
-      <span><b>An independent agent from a different AI vendor</b> reproduces the run. "Done" means reproduced, not claimed.</span>
+      <span><b>An independent agent (not the builder; a different vendor is recommended)</b> reproduces the run. "Done" means reproduced, not claimed.</span>
     </div>
 
     <div class="card p"><span class="num">03</span>
@@ -312,7 +312,7 @@
 
     <rect x="690" y="25" width="198" height="70" rx="16" fill="url(#g4)"/>
     <text x="789" y="53" font-size="16" font-weight="700" fill="#2a0e00">Independent run</text>
-    <text x="789" y="73" font-size="12" fill="#2a0e00">different AI vendor</text>
+    <text x="789" y="73" font-size="12" fill="#2a0e00">independent agent</text>
 
     <rect x="950" y="25" width="150" height="70" rx="16" fill="url(#g5)" stroke="#d6ffe3" stroke-width="1.5"/>
     <text x="1043" y="53" font-size="17" font-weight="800" fill="#03210f">LOCKED</text>
@@ -334,9 +334,9 @@
   <div class="proof">
     <div class="pf a"><b>1. Five questions</b>In your project it asks: where are the decisions, how does a throwaway copy run, what asserts each one, what proof is kept, can slices run side by side.</div>
     <div class="pf b"><b>2. You approve the tools</b>It lists every tool and why this project needs it, then waits for your go. Nothing is written before that.</div>
-    <div class="pf c"><b>3. It writes your lock skill</b>A project-specific lock skill with one command that launches, checks, runs, collects evidence and cleans up.</div>
+    <div class="pf c"><b>3. It writes your lock skill</b>A project-specific lock skill at .agents/skills/ with one command that launches, checks, runs, collects evidence and cleans up.</div>
     <div class="pf a"><b>4. It breaks it on purpose</b>One decision is broken, the check must fail by name, the file is restored byte for byte, the check must pass again.</div>
-    <div class="pf b"><b>5. It proposes one rule</b>One line for your agent rules file: show the evidence before calling a change done. Never applied without you.</div>
+    <div class="pf b"><b>5. It proposes one rule</b>One line for the project's AGENTS.md (any agent can read it): show the evidence before calling a change done. Never applied without you.</div>
     <div class="pf c"><b>6. Teach it by example</b>Give one good and one bad example. It writes the test and the mutant that proves the test can fail.</div>
   </div>
 </section>

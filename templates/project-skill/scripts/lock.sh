@@ -6,7 +6,7 @@
 set -uo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 skill=$(cd "$here/.." && pwd)
-export DL_ROOT=${DL_ROOT:-$(cd "$skill/../../.." && pwd)}      # project root: .claude/skills/lock-<project>/ is three levels below it
+export DL_ROOT=${DL_ROOT:-$(cd "$skill/../../.." && pwd)}      # project root: .agents/skills/lock-<project>/ is three levels below it
 engine="$skill/engine/scripts"
 . "$engine/env.sh"
 ev_rel=handoff/evidence

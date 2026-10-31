@@ -1,6 +1,6 @@
 # Independent run: slice {{SLICE}}
 
-Independent agent (different vendor). Run-only: nothing edited, no commits, throwaway container only.
+Independent agent (not the builder; a different vendor is recommended). Run-only: nothing edited, no commits, throwaway container only.
 
 **Verdict: REPRODUCED (or NOT REPRODUCED)**
 

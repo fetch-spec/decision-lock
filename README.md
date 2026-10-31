@@ -12,21 +12,21 @@ Regulated industries need traceability: for every requirement, point at the evid
 
 ## Install once, generate a lock skill per project
 
-decision-lock is a generator. The generic skill is saved once; in any project you run `/create-decision-lock` and it writes a project-specific `lock-<project>` skill into that project at `.claude/skills/lock-<project>/`. There is no one-size-fits-all check, so the generic skill builds the bespoke one.
+decision-lock is a generator. The generic skill is saved once; in any project you tell your agent (or follow it yourself) "run the create-decision-lock skill" and it writes a project-specific `lock-<project>` skill into that project at `.agents/skills/lock-<project>/`. There is no one-size-fits-all check, so the generic skill builds the bespoke one.
 
 ```mermaid
 flowchart TD
-    INSTALL[Install decision-lock once<br/>globally] --> INVOKE[In a project: /create-decision-lock]
+    INSTALL[Install decision-lock once<br/>once] --> INVOKE[In a project: run the create-decision-lock skill]
     INVOKE --> FQ[Five questions<br/>Decisions, Run, Drive, Observe, Isolate]
     FQ --> PROP[Tool proposal<br/>each tool: what it does, why needed]
     PROP --> GO{Human says go?}
     GO -->|asks or wants an alternative| PROP
-    GO -->|go| GEN[Generate .claude/skills/lock-project/<br/>SKILL.md, decisions/, scripts/lock.sh, engine/]
+    GO -->|go| GEN[Generate .agents/skills/lock-project/<br/>SKILL.md, decisions/, scripts/lock.sh, engine/]
     GEN --> ST[Self-test<br/>break one decision on purpose]
     ST --> FAIL[Run FAILS by a named assertion]
     FAIL --> RESTORE[Restore file byte for byte<br/>sha256 before = after]
     RESTORE --> PASS[Run PASSES again<br/>recorded as Proof it can fail]
-    PASS --> RULE[Propose one line for CLAUDE.md / AGENTS.md<br/>never applied silently]
+    PASS --> RULE[Propose one line for AGENTS.md<br/>never applied silently]
     RULE --> PIPE[Existing pipeline per slice<br/>build -> certify -> independent -> fix loops]
     PIPE --> LOCKED[Slice locked]
 ```
@@ -36,7 +36,7 @@ flowchart TD
 3. **Generate**: `scripts/create-lock.sh <project-dir> <name> --approved` (it refuses without `--approved`). Output layout, one folder:
 
 ```
-.claude/skills/lock-<name>/
+.agents/skills/lock-<name>/
   SKILL.md              ## Launch, ## Doctor, ## Drive, ## Evidence, ## Cleanup, ## Helpers
   decisions/D001.md ... one file per decision: text, rule class, tests, mutants, status
   scripts/lock.sh       ONE CLI: launch | doctor | run <slice|ids> | evidence | cleanup | selftest
@@ -46,10 +46,10 @@ flowchart TD
 
    Every `lock.sh` subcommand prints one JSON object, such as `{"ok":true,"cmd":"run","decisions_passed":3,"mutants_killed":9,...,"verdict":"LOCKED"}`.
 4. **Self-test** (`lock.sh selftest <id>`): break one decision on purpose, show the run fails by a named assertion, restore the file byte for byte (hashes compared), show the run passes. **A check you have never seen fail proves nothing.**
-5. **Agent rule** (`templates/agent-rule.md`): the generator proposes one line for CLAUDE.md or AGENTS.md: "Before you call any change that touches a recorded decision done, run the lock-<project> skill for those decisions and show its evidence." It is only written if you agree.
+5. **Agent rule** (`templates/agents-md-rule.md`): the generator proposes one line for AGENTS.md: "Before you call any change that touches a recorded decision done, run the lock-<project> skill for those decisions and show its evidence." It is only written if you agree.
 6. **Teach mode** (`templates/teach-example.md`): add a decision by giving one example of good data and one of bad data (or one real failing case). The builder turns it into a test plus a mutant.
 
-The generated tree for the worked example is in `examples/orders/.claude/skills/lock-example/`, and its recorded proof is in `examples/orders/handoff/evidence/`.
+The generated tree for the worked example is in `examples/orders/.agents/skills/lock-example/`, and its recorded proof is in `examples/orders/handoff/evidence/`.
 
 Break-and-restore proof from the worked example (decision D003):
 
@@ -66,7 +66,7 @@ flowchart TD
     BUILD --> CERT[2. CERTIFIER session<br/>fresh DB re-run, check classification,<br/>old mutants + at most 5 new, rate HIGH/MEDIUM/LOW]
     CERT -->|"**Verdict: NOT CERTIFIED<br/>(MEDIUM or HIGH found)"| FIX1[cert fix brief to builder<br/>max 3 loops]
     FIX1 --> CERT
-    CERT -->|CERTIFIED| IND[3. INDEPENDENT agent, other vendor<br/>run-only, edits nothing]
+    CERT -->|CERTIFIED| IND[3. INDEPENDENT agent, a different agent<br/>run-only, edits nothing]
     IND -->|"NOT REPRODUCED<br/>(failing file or mutant not killed)"| FIX2[independent fix brief to builder<br/>max 3 loops]
     FIX2 --> IND
     IND -->|REPRODUCED| DONE[Slice locked]
@@ -106,43 +106,36 @@ mutants: 9 killed, 0 crashed, 0 survived
 Or run the generated skill for the example (needs only bash and Docker):
 
 ```bash
-cd examples/orders/.claude/skills/lock-example
+cd examples/orders/.agents/skills/lock-example
 scripts/lock.sh launch && scripts/lock.sh doctor && scripts/lock.sh run
 scripts/lock.sh selftest D003 && scripts/lock.sh evidence
 scripts/lock.sh cleanup
 ```
 
-Then use it on your own project (or run `/create-decision-lock` and let it generate the skill):
+Then use it on your own project (or run `create-decision-lock` and let it generate the skill):
 
 1. Write the decision log (`templates/decision-log.example.md` shows the shape). One decision per entry, stable ids.
 2. Put your schema in `db/*.sql` and your tests in `tests/pgtap/decisions/` and `tests/mutants/decisions/`. Keep this repo checked out; its scripts work on any project through `DL_ROOT`.
 3. `scripts/new-slice.sh <project> D001-D010 ../slice-D001-D010 decision-log.md` makes the slice copy (it also copies `scripts/`, the Dockerfile and `templates/` into it, and renders the briefs).
-4. `scripts/pipeline.sh --slice D001-D010 --dir ../slice-D001-D010` (PowerShell: `scripts/pipeline.ps1 -Slice D001-D010 -Dir ..\slice-D001-D010`)
+4. Copy `templates/decision-lock.agents.example` to `decision-lock.agents` and fill in a command per role, then `scripts/pipeline.sh --slice D001-D010 --dir ../slice-D001-D010` (PowerShell: `scripts/pipeline.ps1 -Slice D001-D010 -Dir ..\slice-D001-D010`)
 
 ## Requirements
 
 - Docker, with permission to run containers.
 - bash (macOS, Linux, or Git Bash / WSL on Windows). PowerShell 5+ only for `pipeline.ps1`.
 - A Postgres image with pgTAP and `pg_prove`. `docker/Dockerfile` builds one (`postgres:16` + `postgresql-16-pgtap` + `libtap-parser-sourcehandler-pgtap-perl`). Set `IMAGE` in `decision-lock.env` to use your own.
-- An agent CLI for the builder and certifier roles: [Claude Code](https://claude.com/claude-code) (`claude`) is the default.
-- A CLI from a different vendor for the independent run: Grok CLI (`grok`, default) or Codex (`codex`). Pick the kind by file name; `pipeline.*` has one `case` per kind if you want to add another. Check each CLI's current flags: they change.
+- An agent (any CLI, or a human) for each role: builder, certifier, independent runner, fixer. Their commands live in one `decision-lock.agents` file; copy `templates/decision-lock.agents.example`, which has commented examples for several CLIs and no default. Check each CLI's current flags: they change.
+- The one hard rule: the certifier and the independent runner must be a different agent/session from the builder. A different vendor is recommended for the independent runner.
 
-Configuration (all optional): `decision-lock.env` in the project root, or environment variables: `IMAGE`, `CONTAINER`, `DBNAME`, `SCHEMA_DIR`, `DL_ROOT`, `DL_BUILDER_CLI`, `DL_INDEPENDENT_CLI`.
+Configuration (all optional): `decision-lock.env` in the project root, or environment variables: `IMAGE`, `CONTAINER`, `DBNAME`, `SCHEMA_DIR`, `DL_ROOT`, `DL_AGENTS` (path to the agents file).
 
 ## Install as a skill
 
-`SKILL.md` at the repo root is the skill. Put the repo (or a copy) where your agent looks for skills:
+`SKILL.md` at the repo root is the skill, and it is plain markdown any agent (or human) can follow. Keep the repo checked out where the agent can read `SKILL.md`, `scripts/` and `templates/`, then tell the agent: "For decision-lock work, read decision-lock/SKILL.md first." Put that sentence in the project's `AGENTS.md`, the open cross-agent file. Agents that read a different file (for example CLAUDE.md or GEMINI.md) can point that file at AGENTS.md.
 
-| Agent | Where |
-|---|---|
-| Claude Code | `~/.claude/skills/decision-lock/` (all projects) or `<project>/.claude/skills/decision-lock/` |
-| Cursor | Copy `SKILL.md` into `<project>/.cursor/rules/decision-lock.mdc` (add frontmatter `alwaysApply: false` and a `description`), keep the repo checked out for `scripts/` and `templates/` |
-| Codex, Grok, others | Reference `SKILL.md` from `AGENTS.md` (or the CLI's equivalent rules file): "For decision-lock work, read decision-lock/SKILL.md first." |
+The generated project skill lives at the neutral path `.agents/skills/lock-<project>/`. If your tool looks for skills in its own folder, symlink or copy that directory there; the content is the same.
 
-```bash
-git clone <this repo> ~/.claude/skills/decision-lock
-mkdir -p ~/.claude/commands && cp ~/.claude/skills/decision-lock/commands/create-decision-lock.md ~/.claude/commands/   # /create-decision-lock
-```
+Optional, as one example of many: tools with slash commands can install `commands/create-decision-lock.md`. It only wraps the plain instruction.
 
 Then ask the agent to "lock the decisions in decision-log.md with decision-lock" and it follows `SKILL.md`.
 
@@ -152,16 +145,16 @@ Then ask the agent to "lock the decisions in decision-log.md with decision-lock"
 |---|---|
 | `SKILL.md` | The method as instructions for an agent |
 | `templates/` | Decision log example, builder / certifier / independent / fix briefs, report skeletons (placeholders `{{SLICE}}`, `{{CONTAINER}}`, ...) |
-| `commands/create-decision-lock.md` | The `/create-decision-lock` command |
-| `scripts/create-lock.sh` | Generator: writes `.claude/skills/lock-<name>/` into a project (needs `--approved`) |
-| `templates/five-questions.md`, `tool-proposal.md`, `agent-rule.md`, `teach-example.md` | Discovery, approval gate, agent rule, teach mode |
+| `commands/create-decision-lock.md` | Optional slash-command wrapper (one example of how to invoke the generator) |
+| `scripts/create-lock.sh` | Generator: writes `.agents/skills/lock-<name>/` into a project (needs `--approved`) |
+| `templates/five-questions.md`, `tool-proposal.md`, `agents-md-rule.md`, `teach-example.md` | Discovery, approval gate, agent rule, teach mode |
 | `templates/project-skill/` | What the generator renders: SKILL.md, `decisions/decision.md`, `scripts/lock.sh`, `lock.ps1` |
 | `scripts/pipeline.ps1`, `pipeline.sh` | The orchestrator for one slice |
 | `scripts/run_decision_tests.sh` | Strict runner: KILLED only by a named failing assertion; CRASHED and SURVIVED fail the run |
 | `scripts/db.sh`, `env.sh` | Throwaway container: `build`, `start`, `fresh`, `stop` |
 | `scripts/new-slice.sh` | Private slice copy with its own container and rendered briefs |
 | `docker/Dockerfile` | Postgres + pgTAP image |
-| `examples/orders/` | A 3-decision worked example with general-rule tests, 9 mutants, sample reports, the generated `.claude/skills/lock-example/` tree and its break-and-restore proof |
+| `examples/orders/` | A 3-decision worked example with general-rule tests, 9 mutants, sample reports, the generated `.agents/skills/lock-example/` tree and its break-and-restore proof |
 | `docs/LESSONS.md` | The eleven hard-won lessons with the failure story for each |
 | `docs/WATCHER.md` | Running the 30-minute watcher |
 

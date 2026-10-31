@@ -59,7 +59,7 @@ Register-ScheduledTask -TaskName 'decision-lock-watch' -Action $action -Trigger 
 
 ## Example: an AI routine
 
-Any agent scheduler (a Claude Code routine, a cron-driven agent) can be the watcher. Give it this brief, by file pointer:
+Any agent scheduler (any agent routine, a cron-driven agent) can be the watcher. Give it this brief, by file pointer:
 
 > For each slice working copy listed below: read the last 20 lines of `pipeline.log`. If it ended in `RESULT: REPRODUCED`, report it as done once. If it ended in `STOPPED`, read the named receipt file, say what the tool error was, and restart the pipeline with `--skip-build --start <round>`. If it ended in `STILL NOT CERTIFIED` or `STILL NOT REPRODUCED`, read the last cert or independent report, run the failing test yourself on a fresh throwaway database, and report the root cause. If the log is older than 45 minutes with no result line, restart it. Never touch a live database and never edit tests or mutants yourself.
 

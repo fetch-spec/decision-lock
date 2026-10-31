@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Writes the project-specific lock skill into a project: <project-dir>/.claude/skills/lock-<name>/
+# Writes the project-specific lock skill into a project: <project-dir>/.agents/skills/lock-<name>/
 # Usage: scripts/create-lock.sh <project-dir> <name> --approved [decision-log path inside the project]
 # The --approved flag is the approval gate: the human has seen templates/tool-proposal.md and said go. Without it nothing is written.
-# Writes only inside .claude/skills/lock-<name>/. It never edits CLAUDE.md / AGENTS.md: it prints the proposed rule instead.
+# Writes only inside .agents/skills/lock-<name>/. It never edits AGENTS.md: it prints the proposed rule instead.
 # Afterwards run the self-test (lock.sh selftest); the skill is not ready until that has failed on purpose and passed again.
 set -euo pipefail
 proj=${1:?project dir}; name=${2:?project name}; shift 2
@@ -12,8 +12,8 @@ for a in "$@"; do case "$a" in --approved) approved=1;; *) log=$a;; esac; done
 skill_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 proj=$(cd "$proj" && pwd)
 [ -f "$proj/$log" ] || { echo "{\"ok\":false,\"error\":\"decision log not found: $log\"}"; exit 1; }
-dest="$proj/.claude/skills/lock-$name"
-[ -e "$dest" ] && { echo "{\"ok\":false,\"error\":\"refusing: .claude/skills/lock-$name already exists\"}"; exit 1; }
+dest="$proj/.agents/skills/lock-$name"
+[ -e "$dest" ] && { echo "{\"ok\":false,\"error\":\"refusing: .agents/skills/lock-$name already exists\"}"; exit 1; }
 cname=decision-lock-$name
 if [ -f "$proj/decision-lock.env" ]; then c=$(grep -E '^CONTAINER=' "$proj/decision-lock.env" | tail -1 | cut -d= -f2 || true); [ -n "$c" ] && cname=$c; fi
 
@@ -49,6 +49,6 @@ sed -e "s|{{PROJECT}}|$name|g" -e "s|{{FIRST_ID}}|$first|g" -e "s|{{LAST_ID}}|$l
     -e "s|{{DRIVE}}|pgTAP (pg_prove)|" -e "s|{{ISOLATE}}|one copy and one container name per slice|" \
     "$skill_dir/templates/project-skill/SKILL.md" > "$dest/SKILL.md"
 
-printf '{"ok":true,"cmd":"create-lock","skill":".claude/skills/lock-%s","decisions":%s,"next":"lock.sh launch, doctor, run, selftest, evidence"}\n' "$name" "$n"
-echo "Proposed rule for CLAUDE.md / AGENTS.md (not applied; ask the human):" >&2
-sed -n '/^```$/,/^```$/p' "$skill_dir/templates/agent-rule.md" | sed '/^```/d' | sed "s|{{PROJECT}}|$name|g" >&2
+printf '{"ok":true,"cmd":"create-lock","skill":".agents/skills/lock-%s","decisions":%s,"next":"lock.sh launch, doctor, run, selftest, evidence"}\n' "$name" "$n"
+echo "Proposed rule for AGENTS.md (not applied; ask the human):" >&2
+sed -n '/^```$/,/^```$/p' "$skill_dir/templates/agents-md-rule.md" | sed '/^```/d' | sed "s|{{PROJECT}}|$name|g" >&2

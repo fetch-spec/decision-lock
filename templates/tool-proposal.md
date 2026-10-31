@@ -18,6 +18,6 @@ Project: `{{PROJECT}}`
 | `lock.sh` / `lock.ps1` | One CLI over the engine: launch, doctor, run, evidence, cleanup, selftest. Every subcommand prints one JSON object | One entry point an agent can call and parse |
 | `sha256sum` (or `shasum -a 256`) | Hashes a file before and after the self-test | Proof the break was restored byte for byte |
 
-Files that will be written: `.claude/skills/lock-{{PROJECT}}/` (SKILL.md, decisions/, scripts/, engine/). Nothing outside it. The agent-rule line for CLAUDE.md / AGENTS.md is proposed at the end, not applied.
+Files that will be written: `.agents/skills/lock-{{PROJECT}}/` (SKILL.md, decisions/, scripts/, engine/). Nothing outside it. The agent-rule line for AGENTS.md is proposed at the end, not applied.
 
 **Waiting for your go.** Reply `go`, or ask about a tool, or ask for an alternative.

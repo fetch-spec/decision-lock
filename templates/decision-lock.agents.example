@@ -1,0 +1,26 @@
+# decision-lock.agents: which command runs each ROLE. Copy to decision-lock.agents (in the slice working copy,
+# or point DL_AGENTS at it), delete the lines you do not use, and fill in the CLI you actually run.
+# Format: ROLE=command (one line each). Lines starting with # are ignored.
+# {PROMPT} becomes a one-line double-quoted instruction that points at the brief file (never inline briefs, lesson 1).
+# {DIR} becomes the working directory. The command runs in that directory, once per session (a fresh process each time).
+#
+# Roles (a role is not a vendor):
+#   BUILDER      writes the code and the slice report
+#   CERTIFIER    judges the builder's work (defaults to BUILDER's command, run as a fresh session)
+#   INDEPENDENT  run-only agent that reproduces the result from the handoff; must NOT be the same command as BUILDER
+#                (a different vendor is recommended)
+#   FIXER        applies fix briefs after a failed certify or independent run (defaults to BUILDER)
+#
+# No default is chosen for you. Examples (illustrative; check each CLI's own docs for current flags):
+#
+# A CLI with a print mode and an edit-approval flag:
+# BUILDER=claude -p {PROMPT} --permission-mode acceptEdits --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+# A CLI with an exec subcommand:
+# INDEPENDENT=codex exec --full-auto -C {DIR} {PROMPT}
+# A CLI with an always-approve flag:
+# CERTIFIER=grok -p {PROMPT} --always-approve --cwd {DIR}
+# Any other agent CLI, an editor agent, or a wrapper script that reads the brief and does the job:
+# FIXER=my-agent --task {PROMPT}
+#
+# A human can fill a role too: point the command at a script that prints the brief path, waits for the
+# report file to appear, and exits 0.

@@ -54,7 +54,7 @@ Eleven things that went wrong, or would have, while this method was run on a rea
 
 **Rule.** In Git Bash set `MSYS_NO_PATHCONV=1` before any `docker` call that has a path like `/work` in it. In PowerShell, name your helper function differently from the program it runs.
 
-**What happened.** Git Bash silently rewrote `/work/tests` into a Windows path, so the container mount was empty and every test "file not found". Separately, a PowerShell function named `Claude` that called `claude` called itself, because PowerShell resolves functions before programs; it recursed until the stack was gone.
+**What happened.** Git Bash silently rewrote `/work/tests` into a Windows path, so the container mount was empty and every test "file not found". Separately, a PowerShell function named after the CLI it called (same name as the program) called itself, because PowerShell resolves functions before programs; it recursed until the stack was gone.
 
 **Why it works.** `scripts/env.sh` exports the variable for every script, and the PowerShell helper is called `Invoke-Cli`.
 

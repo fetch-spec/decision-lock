@@ -1,4 +1,4 @@
-INDEPENDENT RUN of slice {{SLICE}} decision tests. You are an independent agent from a different vendor than the builder and certifier.
+INDEPENDENT RUN of slice {{SLICE}} decision tests. You are an independent agent, not the builder or the certifier (ideally from a different vendor).
 Do NOT edit, fix or add any test, mutant, script, schema file or config. No commits, no network, never a live database. Only run and report.
 
 Read `handoff/slices/{{SLICE}}.md` and the latest `handoff/slices/{{SLICE}}-cert*.md` for context.

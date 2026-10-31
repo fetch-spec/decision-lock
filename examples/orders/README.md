@@ -7,7 +7,7 @@ Decisions D001-D003 in `decision-log.md`, schema in `db/`, general-rule pgTAP te
 Produced by `scripts/create-lock.sh examples/orders example --approved` after the five questions and the tool approval (see `templates/five-questions.md`, `templates/tool-proposal.md`):
 
 ```
-examples/orders/.claude/skills/lock-example/
+examples/orders/.agents/skills/lock-example/
   SKILL.md                 ## Launch, ## Doctor, ## Drive, ## Evidence, ## Cleanup, ## Helpers
   decisions/
     D001.md                status values: text, rule class, tests, 3 mutants, status
@@ -24,7 +24,7 @@ examples/orders/.claude/skills/lock-example/
 Run it (bash and Docker; the container is `decision-lock-example`):
 
 ```
-cd examples/orders/.claude/skills/lock-example
+cd examples/orders/.agents/skills/lock-example
 scripts/lock.sh launch      # {"ok":true,"cmd":"launch","container":"decision-lock-example",...}
 scripts/lock.sh doctor      # {"ok":true,"cmd":"doctor","decisions":3,...}
 scripts/lock.sh run         # {"ok":true,"cmd":"run","decisions_passed":3,"mutants_killed":9,"crashed":0,"survived":0,"problems":0,"verdict":"LOCKED",...}

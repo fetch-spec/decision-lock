@@ -1,6 +1,6 @@
 ---
 name: decision-lock
-description: Use when a written decision log must be locked in with tests (or to generate a project-specific lock skill with /create-decision-lock), so that every decision (D001, D002, ...) has a database test that fails if the decision is dropped, built in slices of 10 with a builder, a separate certifier and an independent agent that reproduces the result.
+description: Use when a written decision log must be locked in with tests (or to generate a project-specific lock skill with create-decision-lock), so that every decision (D001, D002, ...) has a database test that fails if the decision is dropped, built in slices of 10 with a builder, a separate certifier and an independent agent that reproduces the result.
 license: MIT
 ---
 
@@ -18,15 +18,15 @@ This skill is the method plus the scripts in `scripts/` and the briefs in `templ
 3. **A tool error is STOPPED, not a test failure.** No report written, or a nonzero CLI exit: stop and say so. Never loop a tool error to the builder.
 4. **A setup crash is not a kill.** A mutant is killed only when a named pgTAP assertion fails (`not ok`) and the file still reaches its plan.
 5. **Read a verdict only from the first `**Verdict:` line** of a report (line 3 by convention), never by searching the whole file.
-6. **The role that wrote a test never certifies it.** Different sessions; the independent run uses a different vendor.
+6. **The role that wrote a test never certifies it.** Different sessions; the independent run uses a different agent (a different vendor is recommended).
 7. **Tests check the actual database code.** If a test shows the database breaks a decision, record it under "DB defects found"; do not edit production SQL to make a test pass.
 8. In Git Bash set `MSYS_NO_PATHCONV=1` before Docker calls with `/work` paths. In PowerShell never name a helper after the exe it runs.
 
 Full stories for each: `docs/LESSONS.md`.
 
-## /create-decision-lock (the generator)
+## create-decision-lock (the generator)
 
-One generic skill, saved once. Invoked in any project (`/create-decision-lock`, command file in `commands/`; copy it to `~/.claude/commands/` or `<project>/.claude/commands/`), it WRITES a project-specific verification skill into that project at `.claude/skills/lock-<project>/`. There is no one-size-fits-all check: the generator builds the bespoke one. Everything below (decision log, builder, separate certifier, independent rerun, fix loops, severity rule, named-assertion kills, strict harness) stays and is what the generated skill runs.
+One generic skill, saved once. Invoked in any project by a plain instruction ("run the create-decision-lock skill", i.e. follow this SKILL.md; no slash command or vendor feature is needed), it WRITES a project-specific verification skill into that project at `.agents/skills/lock-<project>/` (a neutral path; any tool-specific skills folder can symlink or copy it). There is no one-size-fits-all check: the generator builds the bespoke one. Everything below (decision log, builder, separate certifier, independent rerun, fix loops, severity rule, named-assertion kills, strict harness) stays and is what the generated skill runs.
 
 **A check you have never seen fail proves nothing.** The generator never hands over a skill that has not failed on purpose once.
 
@@ -39,20 +39,20 @@ Steps, in order. Do not skip or reorder:
    - **Observe**: what evidence is kept (per-decision report, kill matrix, receipts, verdict line)?
    - **Isolate**: can slices run in parallel, each with its own copy and container/port?
 2. **Tool proposal and approval gate** (`templates/tool-proposal.md`). List each tool: what it does, why this project needs it. Then STOP and wait for the human to say go. If they ask, explain a tool or offer an alternative. Nothing is written before the go.
-3. **Generate** after go: `scripts/create-lock.sh <project-dir> <name> --approved [decision-log]` (refuses without `--approved`). It writes only `.claude/skills/lock-<name>/` from `templates/project-skill/`:
+3. **Generate** after go: `scripts/create-lock.sh <project-dir> <name> --approved [decision-log]` (refuses without `--approved`). It writes only `.agents/skills/lock-<name>/` from `templates/project-skill/`:
    - `SKILL.md` with `## Launch`, `## Doctor`, `## Drive`, `## Evidence`, `## Cleanup`, `## Helpers`
    - `decisions/D001.md ...`, one file per decision (verbatim text, rule class, tests, mutants, status)
    - `scripts/lock.sh` and `scripts/lock.ps1`: ONE CLI with subcommands `launch`, `doctor`, `run <slice|ids>`, `evidence`, `cleanup` (plus `selftest`), each printing one JSON object (`{"ok":true,...}`). It wraps the unchanged engine in `engine/` (`db.sh`, `env.sh`, `run_decision_tests.sh`).
 4. **Self-test before handover** (`lock.sh selftest <id>`). Pick one decision, apply one mutant (break it on purpose), show the run FAILS by a named assertion, restore the file byte for byte (sha256 before and after must match), show the run PASSES. Record it as "Proof it can fail" in the evidence (`handoff/evidence/selftest.json`, copied into `EVIDENCE.md`). If any step fails, the skill is not ready: fix the cause and rerun.
-5. **Integration: propose, never silently apply.** End by showing the one line from `templates/agent-rule.md` for the project's CLAUDE.md or AGENTS.md: "Before you call any change that touches a recorded decision done, run the lock-<project> skill for those decisions and show its evidence." Write it only if the human agrees.
+5. **Integration: propose, never silently apply.** End by showing the one line from `templates/agents-md-rule.md` for the project's AGENTS.md (agents that read a different file, for example CLAUDE.md or GEMINI.md, can point that file at AGENTS.md): "Before you call any change that touches a recorded decision done, run the lock-<project> skill for those decisions and show its evidence." Write it only if the human agrees.
 
 **Teach mode** (`templates/teach-example.md`). A human adds a decision by giving ONE example of good data and ONE of bad data (or one real failing case). The builder turns it into a test plus a mutant, generalizes it to the whole rule, and shows it failing and passing with `lock.sh run` and `lock.sh selftest`.
 
-The orders example includes a generated tree: `examples/orders/.claude/skills/lock-example/`, with the recorded break-and-restore proof in `examples/orders/handoff/evidence/`.
+The orders example includes a generated tree: `examples/orders/.agents/skills/lock-example/`, with the recorded break-and-restore proof in `examples/orders/handoff/evidence/`.
 
 ## Setup (coordinator)
 
-1. Requirements: Docker, bash, an agent CLI for the builder/certifier (Claude Code `claude`), and a CLI from another vendor for the independent run (`grok`, `codex`). `scripts/db.sh build` builds the Postgres+pgTAP image.
+1. Requirements: Docker, bash, and an agent CLI for each role (builder, certifier, independent runner, fixer), configured in one `decision-lock.agents` file (`templates/decision-lock.agents.example`). The certifier and independent runner must be a different agent/session from the builder; a different vendor is recommended for the independent runner. A human can fill any role. `scripts/db.sh build` builds the Postgres+pgTAP image.
 2. Project layout the scripts expect (copy `scripts/` into the project, or point `DL_ROOT` at it):
    - `decision-log.md` (or any path; give it to `new-slice.sh`): see `templates/decision-log.example.md`.
    - `db/*.sql`: the schema, applied in name order to build a fresh database.
@@ -60,7 +60,7 @@ The orders example includes a generated tree: `examples/orders/.claude/skills/lo
    - `decision-lock.env` (optional): `IMAGE`, `CONTAINER`, `DBNAME`, `SCHEMA_DIR`.
 3. Number decisions D001, D002, ... in the log, one decision per entry, plain words. Split compound decisions. Cut the log into slices of 10 (`D001-D010`, `D011-D020`, ...).
 4. For each slice: `scripts/new-slice.sh <project> D011-D020 <slice-copy-dir> decision-log.md`. It makes a private copy with its own container name and renders the four briefs into `handoff/jobs/`.
-5. Run it: `scripts/pipeline.sh --slice D011-D020 --dir <slice-copy-dir>` (or `scripts/pipeline.ps1 -Slice D011-D020 -Dir <slice-copy-dir>` on Windows). Start slices in parallel, each in its own copy. Watch them every 30 minutes (`docs/WATCHER.md`).
+5. Copy `templates/decision-lock.agents.example` to `decision-lock.agents` in the slice copy and fill in the command for each role (or set `DL_AGENTS`). Then run it: `scripts/pipeline.sh --slice D011-D020 --dir <slice-copy-dir>` (or `scripts/pipeline.ps1 -Slice D011-D020 -Dir <slice-copy-dir>` on Windows). Start slices in parallel, each in its own copy. Watch them every 30 minutes (`docs/WATCHER.md`).
 
 ## The flow per slice
 
@@ -71,7 +71,7 @@ The orders example includes a generated tree: `examples/orders/.claude/skills/lo
    Write **general rules**, not examples (below). Write the slice report `handoff/slices/<slice>.md`.
 2. **CERTIFIER** (`...-CERT.md`, a separate session). Re-run everything on a fresh database; check each classification against the log; check each test asserts the decision and not something weaker; re-run old certifier mutants first, then write at most 5 new ones; rate each problem HIGH / MEDIUM / LOW. Only MEDIUM+ blocks. Writes `<slice>-cert.md` with `**Verdict: CERTIFIED` or `**Verdict: NOT CERTIFIED` on line 3. Fixes nothing.
 3. **Loop back** on NOT CERTIFIED: the pipeline renders `templates/cert-fix-brief.md` with the cert report as input and runs the builder again, then a fresh certifier. Maximum 3 loops.
-4. **INDEPENDENT** (`...-INDEPENDENT.md`, an agent from a different vendor; run-only, edits nothing). REPRODUCED only if every test file passes and every mutant is killed by a named failing assertion (0 survived, 0 crashed). Anything else is NOT REPRODUCED.
+4. **INDEPENDENT** (`...-INDEPENDENT.md`, an agent that is not the builder, ideally from a different vendor; run-only, edits nothing). REPRODUCED only if every test file passes and every mutant is killed by a named failing assertion (0 survived, 0 crashed). Anything else is NOT REPRODUCED.
 5. **Loop back** on NOT REPRODUCED through `templates/independent-fix-brief.md` (builder finds the root cause and fixes it), then a new independent run. Maximum 3 loops.
 6. **Human last.** Only after the loops are exhausted does a person hear about a slice, with the root cause already found. Never report a single failed run.
 

@@ -1,6 +1,6 @@
 # Independent run: D001-D003 (sample)
 
-Independent agent (different vendor). Run-only: nothing edited, no commits, throwaway container `decision-lock-example` only.
+Independent agent (not the builder; a different vendor is recommended). Run-only: nothing edited, no commits, throwaway container `decision-lock-example` only.
 
 **Verdict: REPRODUCED**
 
