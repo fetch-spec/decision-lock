@@ -28,7 +28,12 @@ Regulated industries need traceability: for every requirement, point at the evid
 
 decision-lock is a generator. The generic skill is saved once; in any project you tell your agent (or follow it yourself) "run the create-decision-lock skill" and it writes a project-specific `lock-<project>` skill into that project at `.agents/skills/lock-<project>/`. There is no one-size-fits-all check, so the generic skill builds the bespoke one. That lock skill then guards every slice of 10 decisions. One diagram covers both halves: set up once, then lock slice after slice.
 
+<p align="center"><img src="docs/assets/flow.svg" alt="decision-lock flow chart" width="100%"></p>
+
+<details><summary>Flow chart as text (mermaid)</summary>
+
 ```mermaid
+%%{init: {"theme":"dark","themeVariables":{"background":"#060a1f","primaryColor":"#0d1b33","primaryTextColor":"#f4f9ff","primaryBorderColor":"#19e6ff","lineColor":"#19e6ff","secondaryColor":"#1a1033","tertiaryColor":"#060a1f","clusterBkg":"#080d26","clusterBorder":"#3d8bff","edgeLabelBackground":"#060a1f","fontSize":"15px"},"flowchart":{"curve":"basis","htmlLabels":true}}}%%
 flowchart TD
     subgraph SETUP["Once per project: set up"]
         INSTALL["Install decision-lock once"] --> INVOKE["In a project: run the create-decision-lock skill"]
@@ -60,7 +65,25 @@ flowchart TD
         IND -.->|"tool error"| STOP
     end
     RULE --> LOG
+    classDef cyan fill:#0a2536,stroke:#19e6ff,stroke-width:2px,color:#f4f9ff
+    classDef blue fill:#0c1a3a,stroke:#3d8bff,stroke-width:2px,color:#f4f9ff
+    classDef violet fill:#1a1236,stroke:#a66bff,stroke-width:2px,color:#f4f9ff
+    classDef magenta fill:#2a0f2a,stroke:#ff2fb4,stroke-width:2px,color:#f4f9ff
+    classDef orange fill:#2b1d0d,stroke:#ff9a1f,stroke-width:2px,color:#f4f9ff
+    classDef gold fill:#2a250d,stroke:#ffd84d,stroke-width:2px,color:#f4f9ff
+    classDef red fill:#2b1210,stroke:#ff5a3c,stroke-width:2px,color:#f4f9ff,stroke-dasharray:5 4
+    class INSTALL,INVOKE,IND,PASS,LOG cyan
+    class FQ,RULE,SLICE blue
+    class PROP,GO,RESTORE,CERT violet
+    class FAIL,FIX1,FIX2 magenta
+    class GEN,ST,BUILD orange
+    class DONE gold
+    class HUMAN,STOP red
+    style SETUP fill:#080d26,stroke:#3d8bff,stroke-width:1.5px,color:#3d8bff
+    style SLICE_LOOP fill:#080d26,stroke:#a66bff,stroke-width:1.5px,color:#a66bff
 ```
+
+</details>
 
 1. **Five questions** (`templates/five-questions.md`): Decisions (where is the log, how are ids numbered), Run (how a throwaway copy starts), Drive (which test framework asserts each decision), Observe (what evidence is kept), Isolate (can slices run in parallel, each with its own copy and container).
 2. **Tool proposal** (`templates/tool-proposal.md`): every tool with what it does and why this project needs it. The generator then waits for your go; ask it to explain a tool or offer an alternative.
