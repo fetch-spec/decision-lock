@@ -1,3 +1,13 @@
+<p align="center"><img src="docs/assets/hero.svg" alt="decision-lock"></p>
+
+<p align="center">
+  <img src="docs/assets/badge-license.svg" alt="license: MIT">
+  <img src="docs/assets/badge-agent-agnostic.svg" alt="works with any agent">
+  <img src="docs/assets/badge-mutants.svg" alt="mutants must die">
+  <img src="docs/assets/badge-independent.svg" alt="proof: independent">
+  <img src="docs/assets/badge-pgtap.svg" alt="tests: Postgres + pgTAP">
+</p>
+
 # decision-lock
 
 Lock every design decision with a test that fails if the decision is dropped: slice, build, certify, independently reproduce, loop.
@@ -6,9 +16,13 @@ One-page explainer: [docs/explainer.html](docs/explainer.html)
 
 A written decision log is the source of truth. Each decision (`D001`, `D002`, ...) becomes a test named after it, run against a real throwaway Postgres (Docker + pgTAP). To prove the test can fail, every test comes with mutants: deliberately broken copies of the code that the test must catch. Work is cut into slices of 10 decisions, and each slice is built, certified and independently reproduced by different agents before any human is bothered.
 
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
+
 ## Why
 
 Regulated industries need traceability: for every requirement, point at the evidence that it is met. Software teams rarely do this, and long decision lists get quietly dropped, especially when AI agents do the work. Here every decision has a test that proves it, and a mutant that proves the test is not decoration. A decision that is not built yet is not hidden either: its test fails with `DNNN: not built yet`, so the gap stays visible.
+
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
 
 ## Install once, generate a lock skill per project
 
@@ -57,6 +71,8 @@ Break-and-restore proof from the worked example (decision D003):
 {"ok":true,"cmd":"selftest","decision":"D003","mutant":"d_003_get_order_ignores_customer.sql","broken_run":"FAILED","failed_assertions":"D003-04","restored_file":"db/001_schema.sql","hash_before":"d850729c...66b1","hash_broken":"3f85ad3a...0bf5","hash_after":"d850729c...66b1","hash_match":true,"restored_run":"PASSED"}
 ```
 
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
+
 ## The flow (per slice)
 
 ```mermaid
@@ -82,6 +98,8 @@ Slices run in parallel, each in its own copy of the repo and its own database co
 Pass criteria:
 - **CERTIFIED**: no MEDIUM or HIGH problem. LOW problems are listed but never block.
 - **REPRODUCED**: every test file passes and every mutant is killed by a named failing assertion (0 survived, 0 crashed).
+
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
 
 ## Quick start (the worked example)
 
@@ -119,6 +137,8 @@ Then use it on your own project (or run `create-decision-lock` and let it genera
 3. `scripts/new-slice.sh <project> D001-D010 ../slice-D001-D010 decision-log.md` makes the slice copy (it also copies `scripts/`, the Dockerfile and `templates/` into it, and renders the briefs).
 4. Copy `templates/decision-lock.agents.example` to `decision-lock.agents` and fill in a command per role, then `scripts/pipeline.sh --slice D001-D010 --dir ../slice-D001-D010` (PowerShell: `scripts/pipeline.ps1 -Slice D001-D010 -Dir ..\slice-D001-D010`)
 
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
+
 ## Requirements
 
 - Docker, with permission to run containers.
@@ -129,6 +149,8 @@ Then use it on your own project (or run `create-decision-lock` and let it genera
 
 Configuration (all optional): `decision-lock.env` in the project root, or environment variables: `IMAGE`, `CONTAINER`, `DBNAME`, `SCHEMA_DIR`, `DL_ROOT`, `DL_AGENTS` (path to the agents file).
 
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
+
 ## Install as a skill
 
 `SKILL.md` at the repo root is the skill, and it is plain markdown any agent (or human) can follow. Keep the repo checked out where the agent can read `SKILL.md`, `scripts/` and `templates/`, then tell the agent: "For decision-lock work, read decision-lock/SKILL.md first." Put that sentence in the project's `AGENTS.md`, the open cross-agent file. Agents that read a different file (for example CLAUDE.md or GEMINI.md) can point that file at AGENTS.md.
@@ -138,6 +160,8 @@ The generated project skill lives at the neutral path `.agents/skills/lock-<proj
 Optional, as one example of many: tools with slash commands can install `commands/create-decision-lock.md`. It only wraps the plain instruction.
 
 Then ask the agent to "lock the decisions in decision-log.md with decision-lock" and it follows `SKILL.md`.
+
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
 
 ## Contents
 
@@ -158,9 +182,13 @@ Then ask the agent to "lock the decisions in decision-log.md with decision-lock"
 | `docs/LESSONS.md` | The eleven hard-won lessons with the failure story for each |
 | `docs/WATCHER.md` | Running the 30-minute watcher |
 
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
+
 ## Safety
 
 Mutants are destructive. Run only against containers this tool created (they carry the label `decision-lock=1`; `db.sh` refuses any other container with the same name). Never point it at a live database.
+
+<p align="center"><img src="docs/assets/divider.svg" alt=""></p>
 
 ## License
 
