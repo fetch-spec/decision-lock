@@ -1,6 +1,6 @@
 ---
 name: decision-lock
-description: Use when decisions in a written decision log must be locked in with database tests (Postgres + pgTAP in a throwaway Docker container), or to generate a project-specific lock skill with create-decision-lock. Every decision (D001, D002, ...) gets a test that fails if the decision is dropped, built in slices of 10 by a builder, a separate certifier and an independent agent. Postgres-only; not for pytest/jest decisions or non-database rules.
+description: Use when decisions in a written decision log must each be locked in with a test that fails if the decision is dropped, proven by mutants (deliberately broken copies the test must catch), built in slices of 10 by a builder, a separate certifier and an independent agent. Engines - pgtap (Postgres in Docker, with the project-skill generator create-decision-lock) or tap (any framework that prints TAP, runner only).
 license: MIT
 ---
 
@@ -12,7 +12,9 @@ This skill is the method plus the scripts in `scripts/` and the briefs in `templ
 
 ## Scope and when to use it
 
-- **Postgres only.** Tests are pgTAP, run in Docker. Decisions that are not database behaviour (process, UI, pytest/jest) are recorded as NOT-DB with a quote and get no test.
+- **Two engines** (`DL_ENGINE`, see the header of `scripts/run_decision_tests.sh`). `pgtap` (default): Postgres + pgTAP in a throwaway Docker container, plus the `create-decision-lock` generator and the per-slice pipeline scripts. `tap`: any framework that prints TAP (bats, pytest-tap, `node --test`, `prove`), no Docker; set `DL_FRESH_CMD`, `DL_RUN_CMD`, `DL_MUTANT_CMD`. Try it: `DL_ROOT=examples/tap-demo scripts/run_decision_tests.sh`.
+- **The `tap` engine is the strict runner only.** The generator (`create-lock.sh`), the generated `lock.sh` and the slice briefs are still pgTAP/Docker. For a non-Postgres project you get the same kill rules (killed only by a named failing assertion; a crash or a missing plan is not a kill) but you drive the builder/certifier/independent roles yourself.
+- Decisions that are not testable behaviour (process, UI) are recorded as NOT-DB with a quote and get no test.
 - **Costly: use it where a dropped decision hurts** (roles, RLS, immutability, audit, money). A full slice runs a builder, a certifier and an independent agent, with up to 3 fix loops each. A slice can still end NOT CERTIFIED; that is the check working.
 - **Not for every decision.** For low-stakes rules, write one pgTAP test by hand.
 

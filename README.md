@@ -14,7 +14,7 @@ Lock every design decision with a test that fails if the decision is dropped: sl
 
 One-page explainer: [docs/explainer.html](docs/explainer.html)
 
-**Scope:** Postgres only (pgTAP in Docker). Decisions that are not database behaviour are recorded as NOT-DB and get no test. **Cost:** a slice runs a builder, a certifier and an independent agent with fix loops, so use it where a dropped decision hurts (roles, RLS, immutability, audit), not on every decision.
+**Scope:** two engines. `pgtap` (default, Postgres in Docker) has the full flow: generator, lock skill, slice pipeline. `tap` runs the same strict kill rules for any framework that prints TAP (bats, pytest-tap, `node --test`), with no Docker; the generator and pipeline scripts are not ported to it yet. See [`examples/tap-demo`](examples/tap-demo). Decisions that are not testable behaviour are recorded as NOT-DB and get no test. **Cost:** a slice runs a builder, a certifier and an independent agent with fix loops, so use it where a dropped decision hurts (roles, RLS, immutability, audit), not on every decision.
 
 A written decision log is the source of truth. Each decision (`D001`, `D002`, ...) becomes a test named after it, run against a real throwaway Postgres (Docker + pgTAP). To prove the test can fail, every test comes with mutants: deliberately broken copies of the code that the test must catch. Work is cut into slices of 10 decisions, and each slice is built, certified and independently reproduced by different agents before any human is bothered.
 
@@ -201,6 +201,7 @@ Then ask the agent to "lock the decisions in decision-log.md with decision-lock"
 | `scripts/db.sh`, `env.sh` | Throwaway container: `build`, `start`, `fresh`, `stop` |
 | `scripts/new-slice.sh` | Private slice copy with its own container and rendered briefs |
 | `docker/Dockerfile` | Postgres + pgTAP image |
+| `examples/tap-demo/` | No-Docker demo of the `tap` engine: strong test, weak test, pre-plan crash, not-built decision |
 | `examples/orders/` | A 3-decision worked example with general-rule tests, 9 mutants, sample reports, the generated `.agents/skills/lock-example/` tree and its break-and-restore proof |
 | `docs/LESSONS.md` | The eleven hard-won lessons with the failure story for each |
 | `docs/WATCHER.md` | Running the 30-minute watcher |
