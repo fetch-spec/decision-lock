@@ -1,6 +1,6 @@
 ---
 name: decision-lock
-description: Use when a written decision log must be locked in with tests (or to generate a project-specific lock skill with create-decision-lock), so that every decision (D001, D002, ...) has a database test that fails if the decision is dropped, built in slices of 10 with a builder, a separate certifier and an independent agent that reproduces the result.
+description: Use when decisions in a written decision log must be locked in with database tests (Postgres + pgTAP in a throwaway Docker container), or to generate a project-specific lock skill with create-decision-lock. Every decision (D001, D002, ...) gets a test that fails if the decision is dropped, built in slices of 10 by a builder, a separate certifier and an independent agent. Postgres-only; not for pytest/jest decisions or non-database rules.
 license: MIT
 ---
 
@@ -9,6 +9,13 @@ license: MIT
 A written decision log is the source of truth. Every decision becomes a test named after it, run against a real throwaway database (Docker Postgres + pgTAP), that FAILS if the decision is dropped or ignored. Like traceability in a regulated industry: for every decision you can point at the test that proves it, and at the deliberately broken copy of the code (a mutant) that proves the test can fail.
 
 This skill is the method plus the scripts in `scripts/` and the briefs in `templates/`. You are either the coordinator (setting up and running slices) or one of the roles below (builder, certifier, independent run). A brief file tells a role exactly what to do; follow it.
+
+## Scope and when to use it
+
+- **Postgres only.** Tests are pgTAP, run in Docker. Decisions that are not database behaviour (process, UI, pytest/jest) are recorded as NOT-DB with a quote and get no test.
+- **Costly: use it where a dropped decision hurts** (roles, RLS, immutability, audit, money). A full slice runs a builder, a certifier and an independent agent, with up to 3 fix loops each. A slice can still end NOT CERTIFIED; that is the check working.
+- **Not for every decision.** For low-stakes rules, write one pgTAP test by hand.
+
 
 ## Hard rules (apply in every role)
 
@@ -62,55 +69,7 @@ The orders example includes a generated tree: `examples/orders/.agents/skills/lo
 4. For each slice: `scripts/new-slice.sh <project> D011-D020 <slice-copy-dir> decision-log.md`. It makes a private copy with its own container name and renders the four briefs into `handoff/jobs/`.
 5. Copy `templates/decision-lock.agents.example` to `decision-lock.agents` in the slice copy and fill in the command for each role (or set `DL_AGENTS`). Then run it: `scripts/pipeline.sh --slice D011-D020 --dir <slice-copy-dir>` (or `scripts/pipeline.ps1 -Slice D011-D020 -Dir <slice-copy-dir>` on Windows). Start slices in parallel, each in its own copy. Watch them every 30 minutes (`docs/WATCHER.md`).
 
-## The flow per slice
 
-1. **BUILDER** (`handoff/jobs/SLICE-<slice>.md`). Classify each decision, quoting the log:
-   - DB-BUILT: the database should already do it. Write `d_NNN_*.sql` (assertions named `DNNN-xx ...`) and at least one mutant that breaks exactly that behavior; show the test fails with the mutant and passes without.
-   - DB-NOT-BUILT: first line `-- DB-NOT-BUILT`; the test must fail with `DNNN: not built yet`. No skip, no todo.
-   - NOT-DB: process or workflow. No fake test; record it with the quote.
-   Write **general rules**, not examples (below). Write the slice report `handoff/slices/<slice>.md`.
-2. **CERTIFIER** (`...-CERT.md`, a separate session). Re-run everything on a fresh database; check each classification against the log; check each test asserts the decision and not something weaker; re-run old certifier mutants first, then write at most 5 new ones; rate each problem HIGH / MEDIUM / LOW. Only MEDIUM+ blocks. Writes `<slice>-cert.md` with `**Verdict: CERTIFIED` or `**Verdict: NOT CERTIFIED` on line 3. Fixes nothing.
-3. **Loop back** on NOT CERTIFIED: the pipeline renders `templates/cert-fix-brief.md` with the cert report as input and runs the builder again, then a fresh certifier. Maximum 3 loops.
-4. **INDEPENDENT** (`...-INDEPENDENT.md`, an agent that is not the builder, ideally from a different vendor; run-only, edits nothing). REPRODUCED only if every test file passes and every mutant is killed by a named failing assertion (0 survived, 0 crashed). Anything else is NOT REPRODUCED.
-5. **Loop back** on NOT REPRODUCED through `templates/independent-fix-brief.md` (builder finds the root cause and fixes it), then a new independent run. Maximum 3 loops.
-6. **Human last.** Only after the loops are exhausted does a person hear about a slice, with the root cause already found. Never report a single failed run.
+## Pipeline detail
 
-Pipeline exit codes: 0 REPRODUCED, 3 STOPPED (tool error), 4 still NOT CERTIFIED, 5 still NOT REPRODUCED.
-
-## Writing tests that survive a certifier
-
-Why: a fresh certifier every round finds a new edge case forever (one slice took nine rounds when fixes only patched the exact case found). So:
-
-- **Builders write GENERAL rules.** Loop over every column; find child tables from the catalog (`pg_constraint`, `pg_trigger`), functions from `pg_proc` (+ `has_function_privilege`), objects from `pg_class`; scan every non-system schema; cover every read path or branch; cover every object kind (tables, foreign tables, views, columns, functions). Never a hard-coded list of names that a new column or table would escape. Test both halves of every "and" in the decision. Include odd inputs: long, empty, padded, wrong case.
-- **Certifiers re-check old mutants first, then add at most 5.** LOW problems never block.
-- If a general-rules pass is needed, use `templates/general-rules-fix-brief.md` (`--fix-first`).
-- A mutant is SQL that is applied to a fresh database and breaks one behavior (drop a constraint, replace a function body, add a bypass function, grant a privilege). It must be killed by an assertion that names the decision.
-
-## Test file conventions
-
-- `BEGIN; SELECT plan(n); ... SELECT * FROM finish(); ROLLBACK;` with the plan computed from the catalog when assertions are generated by a query.
-- Assertion names start with `DNNN-xx`; the runner prints which names failed for each killed mutant.
-- pgTAP lives in schema `tap`; the runner sets `search_path=public,tap`, so the files call `plan()` unqualified.
-- Use `throws_ok(sql, sqlstate, message, name)` with the real SQLSTATE or message so a different error does not count as a catch.
-
-## Running
-
-```
-scripts/db.sh start                         # throwaway container
-scripts/run_decision_tests.sh               # every decision; or: ... 011 012
-scripts/db.sh stop
-```
-
-Output per decision: `PASS clean`, one `killed <mutant> [assertions]` line per mutant, or `SURVIVED` / `CRASHED` / `MUTANT DID NOT APPLY` / `NOT BUILT`. The exit code is the number of problems; DB-NOT-BUILT decisions count, so the gap stays visible.
-
-A worked example with three decisions, general-rule tests, nine mutants and sample reports is in `examples/orders/`.
-
-## Reports (what to write)
-
-- Builder: `templates/slice-report.md` -> `handoff/slices/<slice>.md`.
-- Certifier: `templates/cert-report.md` -> `handoff/slices/<slice>-cert.md` (verdict on line 3).
-- Independent: `templates/independent-report.md` -> `handoff/slices/<slice>-independent-run.md` (verdict on line 3).
-
-## Parallel slices
-
-One working copy and one container per slice (`new-slice.sh`). Afterwards merge the slice's new files back into the main project, excluding `decision-lock.env`.
+The per-slice flow (builder, certifier, independent, fix loops, exit codes), the rules for writing tests that survive a certifier, test file conventions, the run output format, report templates and parallel slices are in [`docs/PIPELINE.md`](docs/PIPELINE.md). Read it before running a slice.

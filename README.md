@@ -14,6 +14,8 @@ Lock every design decision with a test that fails if the decision is dropped: sl
 
 One-page explainer: [docs/explainer.html](docs/explainer.html)
 
+**Scope:** Postgres only (pgTAP in Docker). Decisions that are not database behaviour are recorded as NOT-DB and get no test. **Cost:** a slice runs a builder, a certifier and an independent agent with fix loops, so use it where a dropped decision hurts (roles, RLS, immutability, audit), not on every decision.
+
 A written decision log is the source of truth. Each decision (`D001`, `D002`, ...) becomes a test named after it, run against a real throwaway Postgres (Docker + pgTAP). To prove the test can fail, every test comes with mutants: deliberately broken copies of the code that the test must catch. Work is cut into slices of 10 decisions, and each slice is built, certified and independently reproduced by different agents before any human is bothered.
 
 <p align="center"><img src="docs/assets/divider.svg" alt=""></p>
@@ -175,6 +177,8 @@ Configuration (all optional): `decision-lock.env` in the project root, or enviro
 
 The generated project skill lives at the neutral path `.agents/skills/lock-<project>/`. If your tool looks for skills in its own folder, symlink or copy that directory there; the content is the same.
 
+**Claude Code (loads by name):** copy or link the whole repo (not just `SKILL.md`, which needs `scripts/` and `templates/`) into a skills folder, for example `~/.claude/skills/decision-lock/` or `<project>/.claude/skills/decision-lock/`. `SKILL.md` is deliberately short; the per-slice detail is in [`docs/PIPELINE.md`](docs/PIPELINE.md).
+
 Optional, as one example of many: tools with slash commands can install `commands/create-decision-lock.md`. It only wraps the plain instruction.
 
 Then ask the agent to "lock the decisions in decision-log.md with decision-lock" and it follows `SKILL.md`.
@@ -185,7 +189,8 @@ Then ask the agent to "lock the decisions in decision-log.md with decision-lock"
 
 | Path | What |
 |---|---|
-| `SKILL.md` | The method as instructions for an agent |
+| `SKILL.md` | The method as instructions for an agent: hard rules and the generator |
+| `docs/PIPELINE.md` | Per-slice flow, test-writing rules, run output, reports |
 | `templates/` | Decision log example, builder / certifier / independent / fix briefs, report skeletons (placeholders `{{SLICE}}`, `{{CONTAINER}}`, ...) |
 | `commands/create-decision-lock.md` | Optional slash-command wrapper (one example of how to invoke the generator) |
 | `scripts/create-lock.sh` | Generator: writes `.agents/skills/lock-<name>/` into a project (needs `--approved`) |
